@@ -607,3 +607,313 @@ attention places 46.4% of its off-diagonal mass on true graph edges against
 22.2% expected by chance, a 2.1x lift. The brightest cells are genuine
 parent-child pairs. Nothing forces this, since the graph bias is a learned scalar
 per relation rather than a mask.
+
+---
+
+## 8. Ablation Study
+
+Every configuration received an identical 40-epoch budget, so "this component
+helps" cannot be confused with "this run trained longer". Three seeds of the full
+model establish the noise floor.
+
+**Baseline, three seeds:** AUPRC 0.951 ± 0.001, Hit@1 0.805 ± 0.011, MRR 0.887 ± 0.007.
+
+| Configuration | val recon | AUPRC | Hit@1 | MRR | Delta Hit@1 | Verdict |
+|---|---|---|---|---|---|---|
+| Full model (3 seeds) | 0.438 | 0.951 | 0.805 | 0.887 | reference | |
+| Clean training set | 0.436 | 0.952 | 0.814 | 0.892 | +0.009 | within noise |
+| No DAG attention bias | 0.435 | 0.953 | 0.801 | 0.884 | -0.005 | within noise |
+| No calendar features | 0.433 | 0.953 | 0.790 | 0.879 | -0.015 | within noise |
+| Contrastive objective added | 0.486 | 0.953 | 0.787 | 0.880 | -0.018 | within noise |
+| Longer training (57 epochs) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
+
+### 8.1 None of the architectural choices matter
+
+Four of the five variations land inside two standard deviations of the seed
+noise. Neither the DAG attention bias nor the calendar features nor the
+contrastive objective changes the outcome, and training on a guaranteed-clean
+set is no better than training on the contaminated history.
+
+Each of these deserves a specific explanation rather than a shrug.
+
+**The DAG attention bias is redundant because the model finds the graph anyway.**
+Attention in the ablated model still places 42.2% of its off-diagonal mass on
+true pipeline edges against 22.2% expected by chance, a 1.9x lift, compared with
+46.4% and 2.1x when the bias is present. Telling the model the structure nudges
+it slightly and changes nothing downstream, because the structure is recoverable
+from the data.
+
+**Calendar features are redundant because the window already contains the cycle.**
+A 32-hour window spans more than a full day, so the model can infer the phase of
+the daily cycle from the history it can already see. Removing the clock does not
+even hurt reconstruction (0.433 against 0.4328).
+
+**The contrastive objective hurts reconstruction and does not help anything else.**
+Validation reconstruction loss rises from 0.438 to 0.486 while localization is
+unchanged. The contrastive loss itself collapses to 0.055, meaning the task
+became trivial: with augmentations deliberately kept weak, so as not to
+manufacture something that looks like a real fault, the two views are too easy to
+match and the objective stops providing signal. Stronger augmentation is not the
+obvious fix, because that is precisely what would teach the model to treat real
+faults as normal.
+
+**Contamination tolerance is confirmed.** Training on only the clean windows gives
++0.009 Hit@1, inside noise. The claim that the method tolerates the roughly 3%
+incident contamination present in real pipeline history holds, and it holds
+without any special handling beyond robust normalisation.
+
+### 8.2 Better reconstruction makes localization worse
+
+The one result outside the noise floor is the one we did not go looking for.
+Training for 57 epochs instead of 33 improves validation reconstruction loss
+substantially, from 0.433 to 0.405, and makes localization worse, from 0.805 to
+0.756 Hit@1.
+
+This is the over-generalisation failure familiar from reconstruction-based
+anomaly detection. A model that reconstructs well enough starts reconstructing
+anomalies too, and the error signal that detection and localization both depend
+on gets smaller. The contrastive run points the same way from the opposite
+direction: its reconstruction is clearly worse at 0.486 and its localization is
+unchanged.
+
+Reconstruction loss and localization accuracy are therefore only loosely coupled,
+and past a point they move in opposite directions.
+
+This has an uncomfortable implication for the protocol used here. Checkpoints
+were selected on validation reconstruction loss precisely because it needs no
+labels, which keeps the method honestly self-supervised. That criterion is now
+shown to be poorly aligned with the task the model is being asked to perform,
+and a stopping point chosen for methodological purity is not the one that
+maximises the metric anyone cares about. Selecting on validation AUPRC would fix
+the alignment and break the label-free claim.
+
+Resolving this properly needs a label-free proxy that correlates with
+localization rather than with reconstruction, and finding one is left as future
+work. Meanwhile the honest position is that the reported numbers come from a
+selection rule that is defensible but demonstrably suboptimal, which if anything
+understates what the architecture can do.
+
+---
+
+## 9. Error Analysis
+
+Nine of fifteen fault types localize at or near 1.00. Two fail badly.
+
+| Fault type | Hit@1 | Mean tasks affected |
+|---|---|---|
+| `row_loss_truncation` | 0.29 | 3.77 |
+| `duplicate_records` | 0.43 | 2.84 |
+| Nine types at 0.94 to 1.00 | | 1.00 to 1.76 |
+
+The correlation between how far a fault spreads and how well it localizes is
+**-0.63**. Faults that stay local are easy and faults that travel are hard,
+which is the expected shape of the problem.
+
+The error pattern is sharper than the average suggests. Of the mislocalized
+`duplicate_records` incidents, **100%** blamed a task further downstream, and
+nearly all blamed the same one, `join_payments`. For `row_loss_truncation` the
+figure is 85%.
+
+The mechanism is specific to joins. A join's output row count depends on the key
+overlap between its inputs, and key overlap is not among the 38 features, so no
+model can predict a join's row count from its parents' profiles. When duplication
+arrives from upstream, the fan-out it causes at the join is genuinely
+unpredictable from the parent profiles, and the join therefore looks like the
+origin.
+
+This is a feature-design limitation rather than a modelling one, and it names its
+own fix: add a join-key overlap statistic to the profile. The information the
+model would need is currently not measured at all.
+
+Localization also degrades gracefully with severity, from 0.66 Hit@1 in the
+lowest quartile to 0.88 in the highest. A method that scored faint incidents as
+well as severe ones would be suspicious rather than impressive.
+
+---
+
+## 10. Limitations and Threats to Validity
+
+**The benchmark is synthetic.** Fault severities, frequencies and the mix of
+types are design choices. The relative ordering of methods is more trustworthy
+than any absolute number reported here. Validating the simulator against a real
+pipeline's telemetry is the single most valuable piece of future work.
+
+**Detection may be too easy to discriminate.** Five of seven methods land within
+0.03 AUPRC of each other. The benchmark separates methods on localization but
+barely on detection. Lower severities, more concurrent incidents and shorter
+windows would all make it harder.
+
+**Alert-budget columns saturate.** F1 at a 1% budget is capped at 0.129 and at a
+5% budget at 0.512 for any detector with perfect precision, because one cannot
+recall more incidents than one is permitted to raise alerts. Only the 15% column,
+roughly one alert per incident, discriminates between methods.
+
+**Three seeds.** Enough to establish that seed variance is small (Hit@1 standard
+deviation 0.011) but not enough for a formal significance test between methods.
+Differences under about 0.05 Hit@1 should not be treated as real, and on that
+threshold every architectural ablation in Section 8 is a null result.
+
+**Model selection is not entirely label-free, and the label-free part is
+misaligned.** Checkpoints are chosen on validation reconstruction loss, which
+uses no labels, but Section 8.2 shows that criterion does not track localization
+and can actively work against it. The detection pooling rule is chosen on
+validation AUPRC, one categorical choice among five options, reported rather
+than hidden.
+
+**Single pipeline topology.** All results come from one nine-task graph.
+Generalisation to wider graphs, deeper graphs, or pipelines with cycles in their
+scheduling is untested.
+
+---
+
+## 11. Conclusion and Future Work
+
+This project set out to detect ETL failures without labels and to identify which
+task caused them. It delivers a benchmark that makes the second question
+answerable, a self-supervised model that answers both competitively, and an
+explanation layer whose correctness can be measured rather than assumed.
+
+The honest summary of the modelling result is that the transformer does not beat
+simple baselines on this benchmark. Local Outlier Factor detects better and an
+LSTM autoencoder localizes better, and the differences among the leading methods
+are within noise. What the work does establish is more specific and, arguably,
+more useful: **the way per-task scores are made comparable matters more than the
+model that produces them.** Correcting for cross-task comparability is worth up
+to 18.5 Hit@1 points, whereas the entire spread between the leading detectors is
+about 4. Two routes to that correction, one structural and one statistical, prove
+equivalent in effect.
+
+Four design components were tested and none of them helped. Reporting that is
+part of the result rather than an embarrassment. A graph attention bias adds
+nothing because the model recovers the pipeline structure from data on its own,
+explicit calendar features add nothing because a 32-hour window already contains
+more than a full daily cycle, a contrastive objective adds nothing and degrades
+reconstruction, and a guaranteed-clean training set is no better than the
+contaminated history, which confirms the contamination-tolerance claim.
+
+The one effect that exceeded the noise floor was unwelcome: training longer
+improves reconstruction and makes localization worse. That is the
+over-generalisation failure of reconstruction-based detection, and it undermines
+the label-free checkpoint criterion used throughout, since validation
+reconstruction loss turns out to be poorly aligned with the task the model is
+actually being asked to do.
+
+### Future work
+
+**Measure join-key overlap.** Section 9 identifies the exact missing feature
+behind the two worst-localizing fault types. This is the highest-value next step
+and it is cheap.
+
+**Validate the simulator against real telemetry.** Even a few weeks of real
+pipeline metrics with a handful of known incidents would let the fault severity
+and frequency distributions be calibrated rather than chosen.
+
+**Harder detection settings.** The benchmark should be extended with lower
+severities and more concurrent incidents until it separates detectors as clearly
+as it separates localizers.
+
+**A label-free selection criterion that tracks localization.** Section 8.2 shows
+validation reconstruction loss is a poor proxy. Finding a proxy that is both
+label-free and aligned with the downstream task would improve every number here
+and is the most interesting open problem the project surfaced.
+
+**Few-shot fault typing.** The representation already supports a fault-type
+probe. How many labelled examples per class are needed to classify the fifteen
+types is a natural and practical question.
+
+**Online adaptation.** Real pipelines change. A production system would need to
+distinguish a genuine fault from a deliberate schema migration, which is a
+concept-drift problem this work does not address.
+
+---
+
+## References
+
+Verify venue and year for each of these before submission.
+
+1. P. Malhotra, L. Vig, G. Shroff, P. Agarwal. Long Short Term Memory Networks
+   for Anomaly Detection in Time Series. ESANN, 2015.
+2. P. Malhotra et al. LSTM-based Encoder-Decoder for Multi-sensor Anomaly
+   Detection. ICML Anomaly Detection Workshop, 2016.
+3. L. Ruff et al. Deep One-Class Classification. ICML, 2018.
+4. K. Hundman et al. Detecting Spacecraft Anomalies Using LSTMs and
+   Nonparametric Dynamic Thresholding. KDD, 2018.
+5. Y. Su et al. Robust Anomaly Detection for Multivariate Time Series through
+   Stochastic Recurrent Neural Network. KDD, 2019.
+6. J. Audibert et al. USAD: UnSupervised Anomaly Detection on Multivariate Time
+   Series. KDD, 2020.
+7. H. Zhao et al. Multivariate Time-series Anomaly Detection via Graph Attention
+   Network. ICDM, 2020.
+8. A. Deng, B. Hooi. Graph Neural Network-Based Anomaly Detection in
+   Multivariate Time Series. AAAI, 2021.
+9. S. Tuli, G. Casale, N. Jennings. TranAD: Deep Transformer Networks for
+   Anomaly Detection in Multivariate Time Series Data. VLDB, 2022.
+10. J. Xu et al. Anomaly Transformer: Time Series Anomaly Detection with
+    Association Discrepancy. ICLR, 2022.
+11. G. Zerveas et al. A Transformer-based Framework for Multivariate Time Series
+    Representation Learning. KDD, 2021.
+12. Z. Yue et al. TS2Vec: Towards Universal Representation of Time Series.
+    AAAI, 2022.
+13. K. He et al. Masked Autoencoders Are Scalable Vision Learners. CVPR, 2022.
+14. M. Du et al. DeepLog: Anomaly Detection and Diagnosis from System Logs
+    through Deep Learning. CCS, 2017.
+15. W. Meng et al. LogAnomaly: Unsupervised Detection of Sequential and
+    Quantitative Anomalies in Unstructured Logs. IJCAI, 2019.
+16. H. Guo, S. Yuan, X. Wu. LogBERT: Log Anomaly Detection via BERT. IJCNN, 2021.
+17. S. Schelter et al. Automating Large-Scale Data Quality Verification.
+    VLDB, 2018.
+18. E. Breck et al. Data Validation for Machine Learning. SysML, 2019.
+19. J. Song, Y. He. Auto-Validate: Unsupervised Data Validation Using
+    Data-Domain Patterns. SIGMOD, 2021.
+20. S. Redyuk et al. Automating Data Quality Validation for Dynamic Data
+    Ingestion. EDBT, 2021.
+21. L. Wu et al. MicroRCA: Root Cause Localization of Performance Issues in
+    Microservices. NOMS, 2020.
+22. M. Li et al. Causal Inference-Based Root Cause Analysis for Online Service
+    Systems with Intervention Recognition. KDD, 2022.
+23. A. Ikram et al. Root Cause Analysis of Failures in Microservices through
+    Causal Discovery. NeurIPS, 2022.
+24. M. Sundararajan, A. Taly, Q. Yan. Axiomatic Attribution for Deep Networks.
+    ICML, 2017.
+25. S. Lundberg, S. Lee. A Unified Approach to Interpreting Model Predictions.
+    NeurIPS, 2017.
+26. S. Kim et al. Towards a Rigorous Evaluation of Time-series Anomaly
+    Detection. AAAI, 2022.
+27. R. Wu, E. Keogh. Current Time Series Anomaly Detection Benchmarks are
+    Potentially Flawed. TKDE, 2022.
+28. F. Liu, K. Ting, Z. Zhou. Isolation Forest. ICDM, 2008.
+29. M. Breunig et al. LOF: Identifying Density-Based Local Outliers.
+    SIGMOD, 2000.
+
+---
+
+## Appendix A: Reproducing every number
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Dataset, about 4 minutes
+PYTHONPATH=src python -m etlguard.data.build_dataset --n-batches 8000 --out data/etl_v1
+
+# Simulator validation and descriptive figures
+PYTHONPATH=src python scripts/validate_simulator.py
+PYTHONPATH=src python scripts/dataset_report.py --data data/etl_v1
+
+# Pretraining, about 18 minutes on Apple Silicon
+PYTHONPATH=src python -m etlguard.train.pretrain --epochs 40 --out runs/ssl
+
+# Main evaluation with all baselines
+PYTHONPATH=src python -m etlguard.eval.run_eval --ckpt runs/ssl/best.pt --save-scores
+
+# Seeds and ablations, about two hours
+PYTHONPATH=src python scripts/run_experiments.py --only all
+
+# Attribution, error analysis, tables and figures
+PYTHONPATH=src python scripts/attribution_study.py --ckpt runs/ssl/best.pt
+PYTHONPATH=src python scripts/error_analysis.py --ckpt runs/ssl/best.pt
+PYTHONPATH=src python scripts/results_report.py
+
+# Tests
+PYTHONPATH=src python -m pytest tests/ -q
+```

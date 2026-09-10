@@ -251,7 +251,60 @@ as real.
 
 ## 7. Ablations and seed repeats
 
-Pending. Two additional seeds and four ablations (no DAG attention bias, no
-calendar features, clean training set, contrastive objective enabled) are running
-with an identical 40-epoch budget, so that "this component helps" cannot be
-confused with "this run trained longer".
+Identical 40-epoch budget for every configuration, so that "this component helps"
+cannot be confused with "this run trained longer". Three seeds set the noise
+floor: **AUPRC 0.951 ± 0.001, Hit@1 0.805 ± 0.011, MRR 0.887 ± 0.007**.
+
+| Configuration | val recon | AUPRC | Hit@1 | MRR | Delta Hit@1 | Verdict |
+|---|---|---|---|---|---|---|
+| Full model (3 seeds) | 0.438 | 0.951 | 0.805 | 0.887 | reference | |
+| Clean training set | 0.436 | 0.952 | 0.814 | 0.892 | +0.009 | within noise |
+| No DAG attention bias | 0.435 | 0.953 | 0.801 | 0.884 | -0.005 | within noise |
+| No calendar features | 0.433 | 0.953 | 0.790 | 0.879 | -0.015 | within noise |
+| Contrastive added | 0.486 | 0.953 | 0.787 | 0.880 | -0.018 | within noise |
+| Longer training (57 ep) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
+
+### None of the architectural choices matter
+
+Four of five land inside two standard deviations of seed noise, and each has a
+specific explanation rather than a shrug.
+
+**The DAG attention bias is redundant** because the model finds the graph anyway.
+Without the bias, attention still puts 42.2% of off-diagonal mass on true edges
+against 22.2% by chance (1.9x), compared with 46.4% and 2.1x with it. Telling the
+model the structure nudges it and changes nothing downstream.
+
+**Calendar features are redundant** because a 32-hour window already spans more
+than a full daily cycle, so the phase is inferable from the visible history.
+Removing them does not even hurt reconstruction (0.433 against 0.4328).
+
+**The contrastive objective hurts reconstruction and helps nothing.** Validation
+loss rises from 0.438 to 0.486 and the contrastive term itself collapses to
+0.055, meaning the task became trivial. With augmentations deliberately weak, so
+as not to synthesise something indistinguishable from a real fault, the two views
+are too easy to match. Stronger augmentation is not the fix, since that is
+exactly what would teach the model that real faults are normal.
+
+**Contamination tolerance is confirmed.** Training on clean windows only gives
++0.009, inside noise, so the method genuinely tolerates the 3% contamination that
+real pipeline history carries.
+
+### Better reconstruction makes localization worse
+
+The only effect outside the noise floor is one we were not looking for. Training
+57 epochs instead of 33 improves validation reconstruction from 0.433 to 0.405
+and drops localization from 0.805 to 0.756 Hit@1.
+
+This is the over-generalisation failure familiar from reconstruction-based
+anomaly detection: a model that reconstructs well enough begins reconstructing
+anomalies too, shrinking the error signal that detection and localization both
+rely on. The contrastive run says the same thing from the other side, with
+clearly worse reconstruction and unchanged localization.
+
+The implication for this protocol is uncomfortable and worth stating. Checkpoints
+were selected on validation reconstruction loss precisely because it needs no
+labels. That criterion is now shown to be poorly aligned with the task, so the
+reported numbers come from a selection rule that is defensible but demonstrably
+suboptimal. Selecting on validation AUPRC would fix the alignment and break the
+label-free claim. Finding a label-free proxy that tracks localization is the most
+interesting open problem this project surfaced.
