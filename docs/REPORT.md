@@ -1,0 +1,609 @@
+# Self-Supervised Deep Learning for ETL Error Detection and Root-Cause Localization
+
+**B.Tech Deep Learning Project**
+
+---
+
+## Abstract
+
+Extract-Transform-Load pipelines fail quietly. A source system starts emitting
+nulls, a currency convention changes upstream, a join key gets reformatted, and
+the pipeline keeps running and keeps loading data that is wrong. The failure is
+usually noticed days later by someone reading a dashboard. Detecting these
+failures automatically is hard because labelled examples barely exist, and
+locating their cause is harder still, because by the time a fault reaches a
+dashboard every task downstream of it looks broken.
+
+This project addresses both problems with a self-supervised model trained on
+unlabelled pipeline telemetry. Because no public benchmark of labelled ETL
+failures with root-cause annotations exists, we first construct one: a nine-task
+warehouse pipeline simulated at row level, with fifteen fault types injected into
+the rows so that propagation through the task graph emerges from the simulation
+rather than being scripted. Propagation labels are obtained by re-running every
+faulty batch with the fault removed under identical random seeds, which makes the
+blast radius a measurement rather than an assumption. Measured reach is 2.48 of 9
+tasks per incident against 3.94 under the usual topological assumption.
+
+The model is a factorised spatio-temporal transformer trained by masked
+reconstruction over the pipeline's data-quality profiles. On detection it reaches
+0.953 AUPRC, which is competitive with but does not beat a Local Outlier Factor
+baseline at 0.973. On root-cause localization it reaches 0.797 Hit@1, statistically
+tied with three baselines.
+
+The finding that survives scrutiny concerns scoring rather than architecture.
+Ranking tasks by raw anomaly magnitude asks which task has the largest error,
+when the question is which task is furthest from its own normal. Two independent
+corrections for this, conditioning each task's prediction on its parents and
+calibrating each task against its own healthy history, prove worth exactly the
+same (0.773 Hit@1 each, against 0.588 uncalibrated), and combining them adds
+little. An earlier version of this work reported the structural correction as
+worth 18.5 points; measured against a fairly calibrated baseline it is worth 2.4.
+
+Explanations are scored rather than displayed, which the benchmark makes possible:
+Integrated Gradients names the correct symptom family for 93.5% of incidents.
+
+**Keywords:** self-supervised learning, anomaly detection, root-cause analysis,
+data quality, ETL pipelines, transformers, explainable AI
+
+---
+
+## 1. Introduction
+
+### 1.1 Motivation
+
+Modern analytics rests on data pipelines that no one watches closely. A typical
+warehouse pipeline extracts from several source systems, cleans and conforms the
+records, joins them into facts and dimensions, aggregates them, and publishes the
+result to a reporting layer. Each stage runs on a schedule, often hourly, and
+each stage can fail in ways that do not raise an exception.
+
+The failures that matter are the quiet ones. A job that crashes gets noticed
+within minutes because a scheduler alerts on it. A job that completes
+successfully while writing amounts that are a hundred times too large, because an
+upstream service switched from rupees to paise, can go unnoticed for weeks, and
+every report built on that table is wrong for the whole period.
+
+Two things make this hard to automate.
+
+**Labels do not exist.** Incidents are rare, they are recorded inconsistently
+when they are recorded at all, and a team that has just spent a night restoring a
+table is not going to sit down and annotate the run history. Any method that
+requires a thousand labelled examples of schema drift is a method that cannot be
+deployed.
+
+**Symptoms are not causes.** When extraction starts emitting nulls, the cleaning
+step propagates them, the join loses rows, the aggregate under-reports revenue,
+and the warehouse load looks thin. A detector that flags nine unhealthy tasks has
+given the on-call engineer no information they did not already have. Worse, the
+symptom often grows as it travels: a five percent null rate at extraction can
+become a thirty percent revenue drop after aggregation, so the largest anomaly
+frequently sits furthest from the fault.
+
+### 1.2 Objectives
+
+1. Detect broken pipeline runs without using labels for training.
+2. Identify which task originated the incident, not merely which tasks are
+   affected by it.
+3. Explain the finding in terms an engineer can act on, naming the symptom rather
+   than a feature index.
+4. Evaluate all of the above honestly, on a benchmark that makes the questions
+   answerable.
+
+### 1.3 Contributions
+
+**A benchmark.** A nine-task ETL pipeline simulated at row level with fifteen
+fault types across six families, seasonality, growth, drift and campaign
+distractors labelled normal, and 8000 hourly runs. Faults corrupt rows rather
+than features, so downstream tasks consume corrupted data and propagation is an
+emergent property of the simulation.
+
+**Measured propagation labels.** Every faulty batch is re-run with the fault
+removed and everything else held identical via per-node seeded randomness, so a
+task counts as affected only if its profile actually moved. This is a
+measurement, not the usual topological over-approximation, and the two differ
+substantially.
+
+**A self-supervised architecture** combining masked reconstruction over
+data-quality profiles with DAG-structured attention, plus an ancestor-conditioned
+scoring rule for localization.
+
+**A negative result and a correction, both reported.** The DAG attention bias
+turns out not to help, and we show why. The structural scoring rule is worth much
+less than first measured, and we show what the original comparison was actually
+capturing.
+
+**Scored explanations.** Because the simulator knows which symptom family each
+fault should move, attribution accuracy is a number rather than a picture.
+
+---
+
+## 2. Related Work
+
+A full review with a paper-by-paper matrix is in `docs/LITERATURE_REVIEW.md`.
+This section summarises the position.
+
+### 2.1 Reconstruction-based anomaly detection
+
+The dominant approach learns to reproduce normal behaviour and treats what the
+model cannot reproduce as anomalous. Malhotra et al. established that LSTM
+prediction error carries the signal, then showed reconstruction holds up better
+on genuinely unpredictable series. OmniAnomaly made normality probabilistic at
+significant computational cost, which USAD then addressed with adversarially
+trained autoencoders reaching similar accuracy far faster.
+
+All of these assume a clean training set. In an ETL setting that assumption
+fails quietly, because nobody knows which historical runs were healthy, and the
+incidents that were never noticed are still in the history.
+
+### 2.2 Structure-aware detection
+
+MTAD-GAT and GDN both add a graph over variables and both improve on flat
+baselines, which is evidence that inter-variable structure carries real signal.
+GDN in particular scores each sensor by how far it deviates from what its
+neighbours predict, and describes this as localization.
+
+In a sensor network that is defensible. In a pipeline it is not, for the reason
+given in Section 1.1: magnitude does not survive propagation, so ranking by
+deviation systematically blames the wrong end of the graph. This is the specific
+gap the present work targets.
+
+### 2.3 Self-supervised pretraining
+
+Masked modelling and contrastive learning have transferred from language and
+vision to time series through work such as Zerveas et al. and TS2Vec, and to
+operational data through LogBERT. Masked autoencoding supplied the design lesson
+that matters most here, which is that masking must be aggressive enough that the
+task cannot be solved by local interpolation.
+
+None of this has reached ETL data quality. LogBERT is the nearest neighbour and
+it models log key sequences, so it sees that a job ran and in what order but
+never what the data looked like. A pipeline can execute flawlessly, emit a perfect
+log, and load a table where every amount is wrong.
+
+### 2.4 Data quality systems
+
+Deequ and TensorFlow Data Validation made data quality a production concern and
+encode a taxonomy of ETL failures more grounded than anything in the machine
+learning literature. Their limitation is that somebody has to write the rules.
+Auto-Validate removes much of that burden but works within a single column, so it
+cannot see a fault that only appears as a relationship between tables.
+
+### 2.5 Evaluation practice
+
+Kim et al. re-evaluated the standard benchmarks under point-adjusted F1, the
+metric most of this literature reports, and found that randomly generated scores
+can beat published models. Point adjustment credits an entire anomalous segment
+for detecting any single timestep inside it, so on datasets with long anomalous
+stretches, alerting at random works. Wu and Keogh reached a related conclusion
+from the data side.
+
+This work therefore reports AUPRC and F1 at a fixed alert budget as headline
+metrics, and point-adjusted F1 only alongside, labelled as such.
+
+---
+
+## 3. Problem Formulation
+
+An ETL pipeline is a directed acyclic graph of tasks. Each scheduled run *t*
+produces, for every task, a data-quality profile of *F* = 38 numbers. A run is
+therefore a matrix in R^(N x F) with *N* = 9 tasks, and the observable history is
+a tensor in R^(T x N x F).
+
+Given a window of *W* consecutive runs ending at time *t*, the system must
+produce:
+
+| Output | Shape | Meaning |
+|---|---|---|
+| s | scalar | run-level anomaly score |
+| r | N | per-task root-cause score |
+| a | N x F | feature attribution, the symptom |
+
+Under an incident originating at task *v*, the set of anomalous tasks is *v*
+together with those downstream of it that the fault actually reaches. Detection
+asks whether any task is anomalous. Localization asks which one is *v*.
+
+The constraint that defines the project is that no training signal may come from
+labels. Labels exist only to evaluate, and to train the supervised comparisons.
+
+---
+
+## 4. The Benchmark
+
+### 4.1 Why build one
+
+There is no public benchmark of ETL failures with root-cause annotations. The
+detection literature evaluates almost entirely on SMD, SWaT, SMAP and MSL, which
+are server and sensor telemetry: no task graph, no data-content quality metrics,
+and no label for which component originated a failure. Root-cause localization in
+a data pipeline currently cannot be posed as a benchmark task at all.
+
+### 4.2 Pipeline and simulation
+
+The simulated pipeline has nine tasks:
+
+```
+extract_customers ─┐
+                   ├─ clean_customers ─┐
+extract_orders ────┴─ clean_orders ────┴─ join_orders_customers ─┐
+                                                                 ├─ join_payments ─ aggregate_daily ─ load_warehouse
+extract_payments ────────────────────────────────────────────────┘
+```
+
+Every task performs a real transformation over actual dataframe rows: type
+casting, deduplication, currency normalisation to a common unit, left joins,
+group-by aggregation, and a final publish step. Transforms are written to degrade
+rather than crash, as production jobs do, so a task whose join key was removed
+upstream produces empty joins rather than an exception.
+
+Source data is generated with a persistent pool of 20,000 customers, so foreign
+keys point at something real and referential integrity is a meaningful signal.
+Volume follows a daily cycle, a weekly cycle, a growth trend, slow drift in the
+customer country mix, and occasional marketing campaigns that raise volume by
+about 1.7x for a day or two. All of this variation is labelled normal on purpose,
+because without it a threshold on row count would score well and no deep model
+would be justifiable.
+
+### 4.3 Fault taxonomy
+
+Fifteen fault types across six families:
+
+| Family | Faults |
+|---|---|
+| Schema | column drop, column add, type mismatch |
+| Completeness | null spike, primary key null, duplicate records, row loss truncation |
+| Value and distribution | unit change, value corruption, category corruption |
+| Temporal | timezone shift, late arrival |
+| Integrity | foreign key break, join fan-out |
+| Operational | resource degradation |
+
+Faults are injected into the rows, never into the features. Downstream tasks then
+consume the corrupted rows, so propagation is emergent. This matters more than it
+might appear: if propagation were hand-written, the model would be learning our
+propagation rules rather than anything about data pipelines.
+
+`resource_degradation` is deliberately awkward. The task blows its service level
+objective while its output data stays perfectly valid, so a data-quality detector
+must not confuse it with corruption, and it must not propagate.
+
+### 4.4 Measuring propagation instead of assuming it
+
+The obvious way to label which tasks an incident affected is to take the origin
+plus every descendant. That is wrong, and provably so. An unexpected extra column
+is ignored by every downstream select. A task that runs slowly still emits correct
+rows. Labelling those descendants anomalous would penalise a detector for being
+right about them.
+
+So the simulator re-runs every faulty batch a second time with the fault removed,
+holding the source rows, telemetry noise and scheduling jitter identical. This
+works because each task draws its randomness from its own generator seeded on
+(seed, batch, task), which guarantees that the two runs are bit-identical
+wherever the fault does not reach. A unit test asserts exactly that.
+
+A task counts as affected only when its profile actually moved. Measured reach is
+**2.48 of 9 tasks** per incident against **3.94** under the topological
+assumption. `schema_column_add` correctly reaches exactly one task where the
+topological label claims 4.5.
+
+### 4.5 Feature extraction
+
+Each task run is summarised into 38 features aggregated by column role, which is
+what keeps the width constant across tasks with completely different schemas:
+operational telemetry, schema stability, completeness, primary metric
+distribution, secondary numeric distribution, categorical distribution, temporal
+freshness, and referential integrity.
+
+A validation experiment confirms every fault type produces a greater than
+three-sigma response at the injected task, and that each moves its own expected
+symptom family: unit change moves the metric distribution family by 9.5 robust
+units, timezone shift moves temporal by 10.7, resource degradation moves
+operational by 10.2, and the healthy baseline stays flat.
+
+### 4.6 Dataset statistics
+
+| Property | Value |
+|---|---|
+| Runs | 8000 hourly, about eleven months |
+| Shape | 8000 x 9 x 38 |
+| Incidents | 273 spanning 594 runs (7.4%) |
+| Training contamination | 3.0% |
+| Test incident rate | 14.6% |
+| Split | chronological, 60 / 15 / 25 |
+
+---
+
+## 5. Methodology
+
+### 5.1 Architecture
+
+The backbone is a factorised spatio-temporal transformer over the `[W, N, F]`
+window, with about 1.1 million parameters.
+
+Attending over `W x N` positions jointly would cost O((WN)^2) per layer for no
+good reason: the task axis is short at 9, the time axis is long at 32, and the
+two carry different kinds of structure. Each encoder block therefore attends
+along time first, letting every task look at its own history, then across the
+task graph, letting every timestep look at the other tasks. The cost is
+O(W^2 + N^2).
+
+Structural attention carries a learned bias per graph relationship. Every ordered
+pair of tasks is classified as self, direct parent, direct child, distant
+ancestor, distant descendant or unrelated, and the model learns one bias scalar
+per relationship per attention head. This lets it decide how much a task should
+attend to its immediate upstream, rather than having a hard mask imposed. Section
+8.2 reports that this component does not help, and explains why.
+
+Learned task embeddings, sinusoidal time encodings and cyclic calendar features
+complete the input. Calendar features matter: volume swings roughly threefold
+across a day, so without a clock the largest reconstruction error in the dataset
+is simply the time of night.
+
+The mask is concatenated to the input rather than only used as a loss weight, so
+the model always knows which entries it is being asked to predict. A test asserts
+that rewriting a masked value leaves the output unchanged, which rules out the
+model reading the answer it is meant to predict.
+
+### 5.2 Self-supervised objectives
+
+**Feature-group masking** hides one whole symptom family at a task and timestep.
+Masking scattered individual numbers would be far too easy, because
+`null_rate_mean` sits beside `null_rate_max` in the same vector and is trivially
+recoverable from it. The model would learn within-vector correlations and never
+look at the pipeline. Hiding an entire family forces it to use other tasks and
+other timesteps.
+
+**Task masking** hides a task's entire profile at a timestep. Filling that in
+requires predicting what a task should have produced given what its parents
+produced, which is the objective the root-cause scorer is built on.
+
+**Contrastive views** were implemented but treated as an ablation rather than a
+default, because they cost 4.3 times the compute per epoch. Their augmentations
+are deliberately weak: strong amplitude scaling is indistinguishable from a unit
+change and heavy dropout from a null spike, so aggressive augmentation would
+train the model to treat real faults as normal.
+
+Checkpoints are selected on validation reconstruction loss, which needs no labels.
+Selecting on validation AUPRC would make the method weakly supervised while still
+calling it self-supervised, and would inflate every number reported afterwards.
+
+### 5.3 Scoring
+
+Scoring mirrors training. The model was trained to fill in hidden entries, so at
+inference it is asked the same kind of question. Running a masked autoencoder
+unmasked lets it copy its input to its output, and the reconstruction error then
+measures nothing.
+
+Two masking configurations at the final timestep:
+
+**e_hist** hides every task, so each prediction rests on history alone. Large
+whenever a run departs from its own past, which makes it the detection signal.
+
+**e_anc** hides task *i* together with all of its descendants, so the prediction
+rests only on *i*'s ancestors and on history. This is surprise given inputs. A
+task downstream of a failure emits anomalous output that follows perfectly from
+its own anomalous inputs, so e_anc stays small and it reads correctly as a
+victim. The task where the incident began has healthy inputs and anomalous output,
+so e_anc stays large.
+
+Hiding the descendants is essential and was missing from the first
+implementation. Structural attention is bidirectional, so a hidden task can be
+reconstructed from its own descendants, and during an incident those are corrupted
+too and leak the value straight back. Section 8.1 quantifies the difference.
+
+**Per-task calibration.** Tasks are not equally predictable, so their raw errors
+are not comparable and whichever task is hardest to predict wins the ranking by
+default. Each task's score is therefore converted to a percentile against its own
+distribution over unlabelled training runs. Percentile rank rather than a z-score,
+because the error distributions are heavy-tailed and an interquartile range
+summarises them poorly; z-scoring measurably hurt.
+
+### 5.4 Explainability
+
+Attribution is aggregated into the eight named symptom families, so the output
+reads as "clean_orders, completeness family, null_rate_max" rather than as an
+index. Two methods are compared: per-feature reconstruction error, and Integrated
+Gradients of the anomaly score with an all-zero baseline. The zero baseline is
+principled here rather than arbitrary, because in the robust-scaled space zero is
+the healthy median of every feature, so the baseline literally means a completely
+typical run.
+
+Structural attention rollout shows which upstream tasks the model consulted.
+
+---
+
+## 6. Experimental Setup
+
+### 6.1 Protocol
+
+The split is chronological, never random, because a random split over a time
+series leaks the future into the past. Training uses the first 60%, validation
+the next 15%, and test the final 25%.
+
+Training history carries about 3% incident contamination, as real history does.
+Normalisation uses median and interquartile range, robust to that contamination,
+fitted on the training split alone, with a standard deviation fallback for
+features that never vary while healthy. Without that fallback a schema flag
+flipping would register as a one-sigma event, weaker than ordinary volume noise.
+
+At run *t* the model sees only runs *t-W+1* through *t*.
+
+### 6.2 Baselines
+
+| Class | Methods |
+|---|---|
+| Classical | rolling z-score, PCA residual, per-task Isolation Forest, per-task Local Outlier Factor |
+| Deep reconstruction | dense autoencoder, LSTM autoencoder |
+
+Classical baselines receive the current profile together with its deviation from
+the window's rolling mean, so they have temporal context too. A baseline crippled
+by construction proves nothing. Isolation Forest and Local Outlier Factor are
+fitted once per task rather than once over the concatenated 342-dimensional
+vector, which is both the stronger configuration and the only way to obtain a
+task-level score from them.
+
+Every baseline receives the same percentile calibration as the model, fitted the
+same way on unlabelled training scores. Calibration turns out to be worth more
+than the choice of detector, so applying it to one side only would have been the
+result rather than a detail.
+
+### 6.3 Metrics
+
+Detection is measured by AUROC and AUPRC, with AUPRC the honest one at a 14.6%
+base rate, plus best F1 over all thresholds and F1 at fixed alert budgets.
+Point-adjusted F1 is reported but never as the headline.
+
+Localization is measured by Hit@1, Hit@3 and mean reciprocal rank over the nine
+candidate tasks, computed only on runs carrying an incident, with 95% bootstrap
+intervals. Asking which task is at fault on a healthy run is not a meaningful
+question.
+
+Attribution is measured by whether the top symptom family matches the fault's
+mechanistically expected family.
+
+### 6.4 Implementation
+
+PyTorch 2.14 on Apple Silicon using the Metal backend. Training a single
+configuration takes about 18 minutes, deliberately, because the project needs
+many ablation runs far more than one large model, and a dataset of 8000 by 9 by
+38 does not justify a larger backbone. The full test suite is 54 tests covering
+simulator contracts, healthy baselines, fault propagation, counterfactual
+isolation, masking behaviour, scoring indexing and metric correctness.
+
+---
+
+## 7. Results
+
+All numbers are on the test split: 2000 runs, 291 carrying an incident. Nothing
+was tuned on test.
+
+### 7.1 Main comparison
+
+| Method | AUPRC | Best F1 | F1 @15% | Hit@1 | Hit@3 | MRR |
+|---|---|---|---|---|---|---|
+| LSTM autoencoder | 0.951 | 0.928 | 0.887 | **0.818** | **0.986** | **0.900** |
+| PCA residual | 0.942 | 0.928 | 0.876 | 0.801 | 0.955 | 0.880 |
+| **SSL transformer (ours)** | 0.953 | 0.935 | 0.890 | 0.797 | 0.973 | 0.883 |
+| Local Outlier Factor | **0.973** | **0.963** | **0.931** | 0.773 | 0.976 | 0.872 |
+| Dense autoencoder | 0.956 | 0.910 | 0.893 | 0.749 | 0.924 | 0.843 |
+| Rolling z-score | 0.502 | 0.519 | 0.399 | 0.570 | 0.942 | 0.748 |
+| Isolation Forest | 0.466 | 0.469 | 0.450 | 0.340 | 0.701 | 0.550 |
+
+The self-supervised model does not win on either task. Local Outlier Factor has
+the best detection and the LSTM autoencoder the best localization. With 291
+incidents the standard error on a Hit@1 near 0.8 is 0.023, and the seed-to-seed
+standard deviation of our own model is 0.011, so the top four localizers should
+be read as tied rather than ranked.
+
+This deserves an explanation rather than an excuse. Each task profile is only 38
+dimensions and the healthy manifold is densely covered by 4800 training runs,
+which is close to the ideal operating regime for a density or subspace method.
+There was little headroom to claim: five of the seven methods sit between 0.94
+and 0.97 AUPRC. A benchmark that separates methods sharply on localization can
+still fail to separate them on detection, and this one does.
+
+Two failures among the baselines are informative. Rolling z-score, the stand-in
+for the rule-based tooling teams actually run today, collapses to 0.502 AUPRC
+because the benign distractors defeat it. Seasonality, growth and campaigns move
+features as hard as several genuine fault types do, which is precisely why those
+distractors are in the benchmark. Isolation Forest is weakest overall, a known
+consequence of axis-parallel splits on correlated features.
+
+### 7.2 The main finding: cross-task comparability
+
+Ranking nine raw errors asks which task has the largest error. The question is
+which task is furthest from its own normal. Since tasks are not equally
+predictable, the two questions have different answers, and whichever task is
+intrinsically hardest to predict wins the raw ranking by default.
+
+There are two independent ways to correct this, and the result is that they are
+worth the same.
+
+| SSL localizer variant | Hit@1 [95% CI] | MRR [95% CI] |
+|---|---|---|
+| Deviation magnitude, raw | 0.588 [0.533, 0.646] | 0.762 [0.729, 0.796] |
+| Deviation magnitude, **statistically** calibrated | 0.773 [0.725, 0.821] | 0.872 [0.843, 0.899] |
+| Ancestor-conditioned, raw (**structural**) | 0.773 [0.725, 0.821] | 0.867 [0.838, 0.896] |
+| Ancestor-conditioned and calibrated | 0.797 [0.749, 0.842] | 0.883 [0.855, 0.910] |
+
+Rows two and three are identical to three decimal places with the same interval.
+
+Structural conditioning achieves comparability by predicting each task from its
+parents, so whatever a task's inputs already explain is subtracted away.
+Statistical calibration achieves it by converting each task's error into a
+percentile against its own healthy history. Different mechanisms, the same
+effect, the same number. Applying both adds 2.4 points, which the intervals
+cannot distinguish from noise.
+
+An earlier version of this work reported the structural correction as worth 18.5
+Hit@1 points. That figure compared it against an uncalibrated baseline. The
+corrected comparison is the more interesting one, because it identifies what the
+gain was actually made of.
+
+### 7.3 Calibration is not universally beneficial
+
+| Method | Uncalibrated Hit@1 | Calibrated | Delta |
+|---|---|---|---|
+| LSTM autoencoder | 0.643 | 0.818 | **+0.175** |
+| Dense autoencoder | 0.725 | 0.749 | +0.024 |
+| SSL (ancestor-conditioned) | 0.773 | 0.797 | +0.024 |
+| PCA residual | 0.801 | 0.801 | 0.000 |
+| Local Outlier Factor | 0.797 | 0.773 | -0.024 |
+| Rolling z-score | 0.663 | 0.570 | **-0.093** |
+
+The effect tracks how far apart a method's per-task error scales already are.
+The LSTM autoencoder reconstructs all nine tasks through one shared hidden state,
+so its per-task error scales differ wildly and calibration has a great deal to
+correct. PCA and Local Outlier Factor already produce roughly comparable
+per-task scores, so there is nothing to gain and the rank transform only
+discards magnitude information.
+
+The practical lesson is that per-task calibration should be checked rather than
+assumed, and checking is cheap because it requires no labels.
+
+### 7.4 Localization by graph depth
+
+The first implementation of the ancestor score hid only the task under test,
+leaving its descendants visible to leak the corrupted value back. The prediction
+was that this leak should hurt most where a task has the most descendants,
+meaning upstream, and should vanish at the sink.
+
+| Origin depth | Ancestor (descendants hidden) | Self-masked only | Deviation magnitude | n |
+|---|---|---|---|---|
+| 0 (source tasks) | 0.598 | 0.546 | 0.505 | 97 |
+| 1 | 0.806 | 0.583 | 0.556 | 72 |
+| 2 | 0.821 | 0.643 | 0.643 | 28 |
+| 3 | 0.889 | 0.889 | 0.667 | 18 |
+| 4 | 0.938 | 0.625 | 0.562 | 48 |
+| 5 (sink) | 0.893 | 0.893 | 0.893 | 28 |
+
+At depth 5 all three rules agree exactly, because the sink task has no
+descendants and the three masks are then the same tensor. That agreement is not
+a tuned result, it follows from the construction, and it is the cleanest
+available evidence that the mechanism is the one claimed.
+
+Depth 0 is the hardest row and gains least, which also follows: source tasks have
+no ancestors either, so conditioning has nothing extra to offer.
+
+### 7.5 Explainability
+
+| Method | Accuracy over 291 incidents |
+|---|---|
+| Integrated Gradients | **0.935** |
+| Reconstruction error | 0.924 |
+
+Both are high and the gap is small. Integrated Gradients is clearly better on
+`timezone_shift` (0.95 against 0.76), which fits its extra capability: it can
+credit evidence in other tasks and earlier runs, while reconstruction error can
+only inspect the flagged task at the flagged timestep. A timestamp shift shows up
+as a relationship across the window rather than as one large residual. Nine of
+fifteen fault types reach 1.00 under both.
+
+Since Integrated Gradients costs 32 extra forward and backward passes per
+explanation for a one-point average gain, reconstruction error is the sensible
+default, with Integrated Gradients reserved for the fault families where it
+demonstrably helps.
+
+**The attention recovered the pipeline.** Averaged over incidents, structural
+attention places 46.4% of its off-diagonal mass on true graph edges against
+22.2% expected by chance, a 2.1x lift. The brightest cells are genuine
+parent-child pairs. Nothing forces this, since the graph bias is a learned scalar
+per relation rather than a mask.
