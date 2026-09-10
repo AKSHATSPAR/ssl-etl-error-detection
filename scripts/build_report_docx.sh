@@ -34,8 +34,11 @@ tail -n +5 docs/REPORT.md > "$OUT/body.md"
 # renders it as body text instead of populating the title page.
 # No --number-sections either, because the headings are already numbered and
 # pandoc would stack a second set on top ("2 1. Introduction").
+# --resource-path so the figure paths in REPORT.md, which are relative to the
+# repo root, still resolve after body.md is written into artifacts/report/.
 pandoc "$OUT/body.md" \
-  --from markdown+pipe_tables+backtick_code_blocks \
+  --from markdown+pipe_tables+backtick_code_blocks+implicit_figures \
+  --resource-path=".:artifacts/results:artifacts/dataset_report" \
   --to docx \
   --metadata-file="$OUT/metadata.yaml" \
   --reference-doc="$OUT/reference.docx" \

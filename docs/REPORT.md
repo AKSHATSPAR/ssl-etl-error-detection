@@ -243,6 +243,9 @@ about 1.7x for a day or two. All of this variation is labelled normal on purpose
 because without it a threshold on row count would score well and no deep model
 would be justifiable.
 
+![**Figure 1.** Order volume over 600 consecutive runs, with labelled incidents shaded red. The daily cycle and campaign surges move the row count as much as several genuine fault types do, which is why a threshold on volume cannot work and why these distractors are in the benchmark.](artifacts/dataset_report/fig1_volume_incidents.png)
+
+
 ### 4.3 Fault taxonomy
 
 Fifteen fault types across six families:
@@ -284,6 +287,9 @@ A task counts as affected only when its profile actually moved. Measured reach i
 assumption. `schema_column_add` correctly reaches exactly one task where the
 topological label claims 4.5.
 
+![**Figure 2.** Blast radius of a single incident, measured against the counterfactual so a healthy run is exactly zero by construction. The incident originates at `extract_customers` and moves 8 of 9 tasks, several of them harder than the origin itself. This is why ranking tasks by anomaly magnitude cannot localize.](artifacts/dataset_report/fig2_propagation.png)
+
+
 ### 4.5 Feature extraction
 
 Each task run is summarised into 38 features aggregated by column role, which is
@@ -298,6 +304,9 @@ symptom family: unit change moves the metric distribution family by 9.5 robust
 units, timezone shift moves temporal by 10.7, resource degradation moves
 operational by 10.2, and the healthy baseline stays flat.
 
+![**Figure 3.** Response of each symptom family to each fault type, in robust units, measured on the tasks the fault actually reached. The diagonal dominance is what makes attribution scorable: each fault has a known expected symptom. The top row shows healthy runs staying flat.](artifacts/dataset_report/fig4_fault_signature.png)
+
+
 ### 4.6 Dataset statistics
 
 | Property | Value |
@@ -308,6 +317,9 @@ operational by 10.2, and the healthy baseline stays flat.
 | Training contamination | 3.0% |
 | Test incident rate | 14.6% |
 | Split | chronological, 60 / 15 / 25 |
+
+![**Figure 4.** Incident mix across the 8000-run timeline. All fifteen fault types are represented, with between 12 and 70 affected runs each.](artifacts/dataset_report/fig3_fault_mix.png)
+
 
 ---
 
@@ -504,6 +516,9 @@ There was little headroom to claim: five of the seven methods sit between 0.94
 and 0.97 AUPRC. A benchmark that separates methods sharply on localization can
 still fail to separate them on detection, and this one does.
 
+![**Figure 5.** Detection and localization across all seven methods, ours in blue. Two panels rather than one shared axis, because they are different questions and a method can be strong at one and weak at the other.](artifacts/results/fig5_method_comparison.png)
+
+
 Two failures among the baselines are informative. Rolling z-score, the stand-in
 for the rule-based tooling teams actually run today, collapses to 0.502 AUPRC
 because the benign distractors defeat it. Seasonality, growth and campaigns move
@@ -611,6 +626,11 @@ attention places 46.4% of its off-diagonal mass on true graph edges against
 22.2% expected by chance, a 2.1x lift. The brightest cells are genuine
 parent-child pairs. Nothing forces this, since the graph bias is a learned scalar
 per relation rather than a mask.
+
+![**Figure 6.** Structural attention averaged over incidents, row attending to column. The brightest cells are true parent-child pairs in the pipeline. Section 8.1 shows this alignment survives removing the DAG bias entirely, which is why the bias turns out to be redundant.](artifacts/results/fig7_attention.png)
+
+![**Figure 7.** Attribution accuracy per fault type for both explanation methods, scored against each fault's mechanistically expected symptom family.](artifacts/results/fig8_attribution.png)
+
 
 ---
 
@@ -735,6 +755,9 @@ model would need is currently not measured at all.
 Localization also degrades gracefully with severity, from 0.66 Hit@1 in the
 lowest quartile to 0.88 in the highest. A method that scored faint incidents as
 well as severe ones would be suspicious rather than impressive.
+
+![**Figure 8.** Localization accuracy per fault type and by severity quartile. The two row-count faults at the bottom are the failure mode analysed above, and accuracy rising with severity is the expected and desirable shape.](artifacts/results/fig6_localization_breakdown.png)
+
 
 ---
 
