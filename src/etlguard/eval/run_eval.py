@@ -73,6 +73,13 @@ def main(argv=None) -> Dict:
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--budget", type=float, default=0.01)
     ap.add_argument("--skip-baselines", action="store_true")
+    ap.add_argument("--baseline-device", type=str, default="cpu",
+                    help="deep baselines run on CPU by default: LSTM on MPS is "
+                         "unstable and these models are small enough not to care")
+    ap.add_argument("--lstm-max-train", type=int, default=2500,
+                    help="cap on LSTM training sequences; the full set is a "
+                         "209MB tensor and the extra windows buy nothing")
+    ap.add_argument("--lstm-epochs", type=int, default=15)
     ap.add_argument("--tag", type=str, default="ssl")
     ap.add_argument("--device", type=str, default="auto")
     ap.add_argument("--seed", type=int, default=7)
@@ -94,8 +101,8 @@ def main(argv=None) -> Dict:
 
     loaders = make_loaders(data, window=args.window, batch_size=args.batch_size)
     t0 = time.time()
-    val_b = score_loader(model, loaders["val"], device, data.n_nodes)
-    test_b = score_loader(model, loaders["test"], device, data.n_nodes)
+    val_b = score_loader(model, loaders["val"], device, data.n_nodes, data.adjacency)
+    test_b = score_loader(model, loaders["test"], device, data.n_nodes, data.adjacency)
     print(f"scored val+test in {time.time() - t0:.1f}s")
 
     # Pooling rule chosen on validation, never on test.
@@ -109,15 +116,41 @@ def main(argv=None) -> Dict:
 
     ssl_res = evaluate_scores(test_b.y_type, test_b.y_root,
                               test_b.detection_score(best_rule),
-                              test_b.e_ctx, test_b.severity,
+                              test_b.e_anc, test_b.severity,
                               data.fault_labels, args.budget)
     ssl_res["detection_rule"] = best_rule
     ssl_res["val_rule_auprc"] = rule_scores
 
-    # The naive localizer: rank nodes by raw deviation, ignoring the DAG. This is
-    # the comparison the ancestor-conditioned score has to beat to matter.
+    # Three localizers on the same trained model, so the comparison isolates the
+    # scoring rule rather than confounding it with a different model.
     ssl_res["localization_residual_only"] = localization_metrics(
         test_b.y_root, test_b.e_hist)
+    ssl_res["localization_self_masked_only"] = localization_metrics(
+        test_b.y_root, test_b.e_ctx)
+
+    # Localization split by how far upstream the origin sits. If hiding only the
+    # node itself lets its descendants leak the answer, that shows up here as a
+    # collapse on shallow (source-side) origins and nowhere else.
+    depth = np.zeros(data.n_nodes, dtype=int)
+    for j in range(data.n_nodes):
+        parents = np.where(data.adjacency[:, j] > 0)[0]
+        depth[j] = 0 if parents.size == 0 else 1 + depth[parents].max()
+    root_depth = np.where(test_b.y_root.sum(axis=1) > 0,
+                          np.argmax(test_b.y_root, axis=1), -1)
+    root_depth = np.array([depth[i] if i >= 0 else -1 for i in root_depth])
+    ssl_res["localization_by_depth"] = {}
+    for d in sorted(set(root_depth[root_depth >= 0])):
+        m = root_depth == d
+        if m.sum() < 3:
+            continue
+        ssl_res["localization_by_depth"][f"depth_{d}"] = {
+            "ancestor_conditioned": localization_metrics(
+                test_b.y_root[m], test_b.e_anc[m]),
+            "self_masked_only": localization_metrics(
+                test_b.y_root[m], test_b.e_ctx[m]),
+            "deviation_magnitude": localization_metrics(
+                test_b.y_root[m], test_b.e_hist[m]),
+        }
 
     gidx = {f: np.array([data.feature_names.index(x) for x in feats])
             for f, feats in FEATURE_GROUPS.items()}
@@ -145,28 +178,49 @@ def main(argv=None) -> Dict:
             results[b.name] = evaluate_scores(
                 lab["y_type"], lab["y_root"], run_s, node_s, lab["severity"],
                 data.fault_labels, args.budget)
+            _checkpoint(results, args.out, args.tag)
             print(f"  {b.name:<18} fitted+scored in {time.time() - t1:.1f}s")
 
-        ae = DenseAutoEncoder(device=device).fit(f_tr)
+        ae = DenseAutoEncoder(device=args.baseline_device).fit(f_tr)
         run_s, node_s = ae.score(f_te)
         results[ae.name] = evaluate_scores(
             lab["y_type"], lab["y_root"], run_s, node_s, lab["severity"],
             data.fault_labels, args.budget)
+        _checkpoint(results, args.out, args.tag)
         print(f"  {ae.name:<18} done")
 
-        flat = lambda ends: np.stack(
-            [data.Xz[t - args.window + 1:t + 1].reshape(args.window, -1) for t in ends])
-        lstm = LSTMAutoEncoder(window=args.window, device=device)
-        lstm.fit_sequences(flat(tr_ends))
+        def flat(ends):
+            return np.stack([data.Xz[t - args.window + 1:t + 1].reshape(args.window, -1)
+                             for t in ends]).astype(np.float32)
+
+        # Stride the training windows rather than taking a prefix: consecutive
+        # windows overlap by 31 of 32 steps, so a contiguous slice would cover
+        # only a few weeks of the year.
+        if len(tr_ends) > args.lstm_max_train:
+            step = int(np.ceil(len(tr_ends) / args.lstm_max_train))
+            lstm_ends = tr_ends[::step]
+        else:
+            lstm_ends = tr_ends
+        t1 = time.time()
+        lstm = LSTMAutoEncoder(window=args.window, epochs=args.lstm_epochs,
+                               device=args.baseline_device)
+        lstm.fit_sequences(flat(lstm_ends))
         run_s, node_s = lstm.score_sequences(flat(te_ends), data.n_nodes)
         results[lstm.name] = evaluate_scores(
             lab["y_type"], lab["y_root"], run_s, node_s, lab["severity"],
             data.fault_labels, args.budget)
-        print(f"  {lstm.name:<18} done")
+        _checkpoint(results, args.out, args.tag)
+        print(f"  {lstm.name:<18} done in {time.time() - t1:.1f}s "
+              f"({len(lstm_ends)} train sequences)")
 
     save_json(args.out / f"results_{args.tag}.json", results)
     print_table(results)
     return results
+
+
+def _checkpoint(results: Dict, out: Path, tag: str) -> None:
+    """Persist after every method, so one crashing baseline costs one baseline."""
+    save_json(out / f"results_{tag}.json", results)
 
 
 def print_table(results: Dict[str, Dict]) -> None:

@@ -11,14 +11,23 @@ them is the method:
 ``e_hist``  every node is hidden, so each prediction rests on history alone.
             Large whenever a run departs from its own past: the detection signal.
 
-``e_ctx``   only node *i* is hidden; every other node at that timestep, its
-            parents included, stays visible. This is *surprise given inputs*.
-            A task downstream of a real failure produces anomalous output, but
-            output that follows perfectly from its (also anomalous) inputs, so
-            ``e_ctx`` is small and it is correctly read as a victim. The task
-            where the incident started has healthy inputs and anomalous output,
-            so ``e_ctx`` stays large. That asymmetry is what separates the origin
-            from its blast radius.
+``e_ctx``   only node *i* is hidden and everything else at that timestep stays
+            visible. This turns out to be the wrong question, and it is kept only
+            to show why: the structural attention is bidirectional, so a hidden
+            node can be reconstructed from its own *descendants*. During an
+            incident those descendants are corrupted too, and they leak the
+            corrupted value straight back. The leak is worst exactly where it
+            hurts most, at source tasks, which have the most descendants and are
+            the most valuable root causes to identify.
+
+``e_anc``   node *i* **and all of its descendants** are hidden, so the prediction
+            rests only on *i*'s ancestors and on history. This is the real
+            ancestor-conditioned score: *surprise given inputs*. A task
+            downstream of a failure emits anomalous output that follows perfectly
+            from its own anomalous inputs, so ``e_anc`` is small and it reads
+            correctly as a victim. The task where the incident began has healthy
+            inputs and anomalous output, so ``e_anc`` stays large. That asymmetry
+            is what separates the origin from its blast radius.
 """
 
 from __future__ import annotations
@@ -35,7 +44,8 @@ from torch.utils.data import DataLoader
 class ScoreBundle:
     t: np.ndarray            # [M] index of the scored run
     e_hist: np.ndarray       # [M, N] history-only error per node
-    e_ctx: np.ndarray        # [M, N] ancestor-conditioned error per node
+    e_ctx: np.ndarray        # [M, N] error with only node i hidden (leaky, kept for ablation)
+    e_anc: np.ndarray        # [M, N] error with node i and its descendants hidden
     feat_err: np.ndarray     # [M, N, F] per-feature error (history-only pass)
     y_anom: np.ndarray       # [M, N]
     y_root: np.ndarray       # [M, N]
@@ -54,19 +64,33 @@ class ScoreBundle:
             return self.e_hist.mean(axis=1)
         if rule == "max_ctx":
             return self.e_ctx.max(axis=1)
+        if rule == "max_anc":
+            return self.e_anc.max(axis=1)
         if rule == "top2_hist":
             s = np.sort(self.e_hist, axis=1)[:, -2:]
             return s.mean(axis=1)
         raise ValueError(f"unknown pooling rule {rule!r}")
 
-    DETECTION_RULES = ("max_hist", "mean_hist", "max_ctx", "top2_hist")
+    DETECTION_RULES = ("max_hist", "mean_hist", "max_ctx", "max_anc", "top2_hist")
+
+
+def descendant_mask(adjacency: np.ndarray) -> np.ndarray:
+    """``M[i, j] = 1`` when *j* is *i* itself or anything downstream of it."""
+    n = adjacency.shape[0]
+    reach = adjacency.astype(bool).copy()
+    for k in range(n):
+        reach |= np.outer(reach[:, k], reach[k, :])
+    return (reach | np.eye(n, dtype=bool)).astype(np.float32)
 
 
 @torch.no_grad()
-def score_loader(model, loader: DataLoader, device: str,
-                 n_nodes: int) -> ScoreBundle:
+def score_loader(model, loader: DataLoader, device: str, n_nodes: int,
+                 adjacency: Optional[np.ndarray] = None) -> ScoreBundle:
     model.eval()
-    ts, eh, ec, fe, ya, yr, yt, sev = [], [], [], [], [], [], [], []
+    ts, eh, ec, ea, fe, ya, yr, yt, sev = [], [], [], [], [], [], [], [], []
+    if adjacency is None:
+        raise ValueError("adjacency is required to hide a node's descendants")
+    desc = torch.from_numpy(descendant_mask(adjacency)).to(device)   # [N, N]
 
     for batch in loader:
         x = batch["x"].to(device)
@@ -81,18 +105,27 @@ def score_loader(model, loader: DataLoader, device: str,
         eh.append(err.mean(dim=-1).cpu().numpy())
         fe.append(err.cpu().numpy())
 
-        # ---- ancestor-conditioned: hide one node at a time ----
+        # ---- one node hidden at a time ----
         # Replicating the window N times lets all N queries run as one batch.
         xr = x.unsqueeze(1).expand(b, n, w, n, f).reshape(b * n, w, n, f)
         calr = cal.unsqueeze(1).expand(b, n, w, cal.shape[-1]).reshape(b * n, w, -1)
-        m_ctx = torch.zeros_like(xr)
+        rows = torch.arange(b * n, device=device)
         node_ix = torch.arange(n, device=device).repeat(b)
-        m_ctx[torch.arange(b * n, device=device), -1, node_ix] = 1.0
-        pred_c = model(xr, m_ctx, calr)
-        err_c = ((pred_c[:, -1] - xr[:, -1]) ** 2).mean(dim=-1)   # [b*n, n]
-        # Keep only the entry for the node that was actually hidden.
-        err_c = err_c[torch.arange(b * n, device=device), node_ix].view(b, n)
-        ec.append(err_c.cpu().numpy())
+
+        def query(hide: torch.Tensor) -> np.ndarray:
+            """``hide`` is [b*n, N]: which nodes to blank at the final step."""
+            m = torch.zeros_like(xr)
+            m[:, -1] = hide.unsqueeze(-1).expand(-1, -1, f)
+            pred = model(xr, m, calr)
+            e = ((pred[:, -1] - xr[:, -1]) ** 2).mean(dim=-1)      # [b*n, N]
+            # Keep only the entry for the node whose value we asked about.
+            return e[rows, node_ix].view(b, n).cpu().numpy()
+
+        self_only = torch.zeros(b * n, n, device=device)
+        self_only[rows, node_ix] = 1.0
+        ec.append(query(self_only))
+        # Hiding the descendants too is what removes the leak.
+        ea.append(query(desc[node_ix]))
 
         ts.append(batch["t"].numpy())
         ya.append(batch["y_anom"].numpy())
@@ -101,5 +134,5 @@ def score_loader(model, loader: DataLoader, device: str,
         sev.append(batch["severity"].numpy())
 
     cat = lambda xs: np.concatenate(xs, axis=0)
-    return ScoreBundle(cat(ts), cat(eh), cat(ec), cat(fe),
+    return ScoreBundle(cat(ts), cat(eh), cat(ec), cat(ea), cat(fe),
                        cat(ya), cat(yr), cat(yt), cat(sev))

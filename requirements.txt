@@ -18,3 +18,4 @@ seaborn>=0.13
 
 # Testing
 pytest>=8.0
+tabulate>=0.9

@@ -42,14 +42,24 @@ def f1_at_budget(y: np.ndarray, s: np.ndarray, budget: float) -> Dict[str, float
     per week and no more, and the question is how many real incidents are in them.
     """
     k = max(1, int(round(budget * len(s))))
-    thresh = np.sort(s)[-k]
-    pred = (s >= thresh).astype(np.int64)
+    pred = np.zeros(len(s), dtype=np.int64)
+    # Take exactly k by rank. Using `s >= threshold` looks equivalent but is not:
+    # robust-scaled features are clipped, so scores saturate and tie in bulk at
+    # the threshold, and the budget silently blows out.
+    pred[np.argsort(-s, kind="stable")[:k]] = 1
     tp = int((pred & y).sum())
     prec = tp / max(pred.sum(), 1)
     rec = tp / max(y.sum(), 1)
     f1 = 2 * prec * rec / max(prec + rec, 1e-12)
+
+    # A tight budget caps F1 no matter how good the detector is: you cannot
+    # recall more incidents than you are allowed to raise alerts. Reporting the
+    # ceiling alongside stops a saturated 0.129 from being read as a failure
+    # when it is in fact perfect precision.
+    max_rec = min(1.0, k / max(y.sum(), 1))
+    ceiling = 2 * max_rec / (1.0 + max_rec) if max_rec > 0 else 0.0
     return {f"precision@{budget:g}": prec, f"recall@{budget:g}": rec,
-            f"f1@{budget:g}": f1}
+            f"f1@{budget:g}": f1, f"f1_ceiling@{budget:g}": ceiling}
 
 
 def point_adjusted_f1(y: np.ndarray, s: np.ndarray) -> float:
@@ -81,7 +91,9 @@ def point_adjusted_f1(y: np.ndarray, s: np.ndarray) -> float:
 
 
 def detection_metrics(y: np.ndarray, s: np.ndarray, budget: float = 0.01,
-                      include_point_adjust: bool = True) -> Dict[str, float]:
+                      include_point_adjust: bool = True,
+                      extra_budgets: Sequence[float] = (0.05, 0.15)
+                      ) -> Dict[str, float]:
     if y.sum() == 0 or y.sum() == len(y):
         return {"auroc": float("nan"), "auprc": float("nan")}
     out = {
@@ -91,6 +103,11 @@ def detection_metrics(y: np.ndarray, s: np.ndarray, budget: float = 0.01,
     }
     out.update(best_f1(y, s))
     out.update(f1_at_budget(y, s, budget))
+    # A 1% budget cannot recall more than 1%/base_rate of incidents, so on its
+    # own it saturates and separates nothing. Wider budgets are where the
+    # methods actually differ.
+    for b in extra_budgets:
+        out.update(f1_at_budget(y, s, b))
     if include_point_adjust:
         out["point_adjusted_f1_NOT_HEADLINE"] = point_adjusted_f1(y, s)
     return out
@@ -161,6 +178,8 @@ def localization_by_group(y_root: np.ndarray, r: np.ndarray, groups: np.ndarray,
     """
     out = {}
     for g in np.unique(groups):
+        if int(g) == 0:
+            continue          # the healthy class has no origin to rank
         m = groups == g
         if m.sum() < 3:
             continue

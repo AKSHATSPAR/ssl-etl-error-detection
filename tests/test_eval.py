@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader, Dataset
 
 from etlguard.eval.metrics import (best_f1, detection_delay, f1_at_budget,
                                    localization_metrics, point_adjusted_f1)
-from etlguard.eval.scoring import ScoreBundle, score_loader
+from etlguard.eval.scoring import (ScoreBundle, descendant_mask,
+                                   score_loader)
 from etlguard.models.st_transformer import ModelConfig, STTransformer
 from etlguard.simulator.dag import build_pipeline
 from etlguard.simulator.profiler import FEATURE_NAMES
@@ -36,6 +37,10 @@ class _Fake(Dataset):
                 "t": torch.tensor(i)}
 
 
+PIPE = build_pipeline()
+ADJ = PIPE.adjacency()
+
+
 def _model():
     pipe = build_pipeline()
     cfg = ModelConfig(n_nodes=N, n_features=F, window=W, d_model=32,
@@ -48,11 +53,13 @@ def _model():
 # --------------------------------------------------------------------------- #
 
 def test_score_loader_shapes_and_finiteness():
-    b = score_loader(_model(), DataLoader(_Fake(), batch_size=2), "cpu", N)
+    b = score_loader(_model(), DataLoader(_Fake(), batch_size=2), "cpu", N, ADJ)
     assert b.e_hist.shape == (5, N)
     assert b.e_ctx.shape == (5, N)
+    assert b.e_anc.shape == (5, N)
     assert b.feat_err.shape == (5, N, F)
     assert np.isfinite(b.e_hist).all() and np.isfinite(b.e_ctx).all()
+    assert np.isfinite(b.e_anc).all()
 
 
 def test_context_scoring_hides_exactly_one_node():
@@ -66,7 +73,7 @@ def test_context_scoring_hides_exactly_one_node():
     torch.manual_seed(0)
     model = _model().eval()
     data = _Fake(3)
-    batched = score_loader(model, DataLoader(data, batch_size=3), "cpu", N)
+    batched = score_loader(model, DataLoader(data, batch_size=3), "cpu", N, ADJ)
 
     with torch.no_grad():
         for w in range(len(data)):
@@ -80,11 +87,59 @@ def test_context_scoring_hides_exactly_one_node():
                 assert batched.e_ctx[w, n] == pytest.approx(want, abs=1e-5)
 
 
+def test_descendant_mask_covers_self_and_everything_downstream():
+    d = descendant_mask(ADJ)
+    i = PIPE.index
+    assert d[i["extract_orders"], i["extract_orders"]] == 1      # itself
+    assert d[i["extract_orders"], i["clean_orders"]] == 1        # child
+    assert d[i["extract_orders"], i["load_warehouse"]] == 1      # far descendant
+    assert d[i["extract_orders"], i["extract_customers"]] == 0   # other branch
+    assert d[i["load_warehouse"], i["extract_orders"]] == 0      # upstream
+    # A sink hides only itself.
+    assert d[i["load_warehouse"]].sum() == 1
+
+
+def test_ancestor_scoring_hides_the_descendants_too():
+    """``e_anc`` must blank node i and everything downstream of it.
+
+    Hiding only node i leaves its descendants visible, and during an incident
+    those are corrupted too, so they leak the corrupted value back to the model.
+    The leak is worst at source tasks, which have the most descendants and are
+    the origins most worth identifying. This checks the wider mask is applied.
+    """
+    torch.manual_seed(0)
+    model = _model().eval()
+    data = _Fake(2)
+    b = score_loader(model, DataLoader(data, batch_size=2), "cpu", N, ADJ)
+    desc = torch.from_numpy(descendant_mask(ADJ))
+
+    with torch.no_grad():
+        for w in range(len(data)):
+            x = data[w]["x"].unsqueeze(0)
+            for n in range(N):
+                m = torch.zeros_like(x)
+                m[:, -1] = desc[n].view(1, N, 1).expand(1, N, F)
+                pred = model(x, m, torch.zeros(1, W, 4))
+                want = ((pred[0, -1, n] - x[0, -1, n]) ** 2).mean().item()
+                assert b.e_anc[w, n] == pytest.approx(want, abs=1e-5)
+
+
+def test_ancestor_and_self_masked_scores_differ_except_at_sinks():
+    """They must coincide only where a node has no descendants to hide."""
+    torch.manual_seed(0)
+    b = score_loader(_model().eval(), DataLoader(_Fake(3), batch_size=3),
+                     "cpu", N, ADJ)
+    sink = PIPE.index["load_warehouse"]
+    assert np.allclose(b.e_anc[:, sink], b.e_ctx[:, sink], atol=1e-5)
+    source = PIPE.index["extract_orders"]
+    assert not np.allclose(b.e_anc[:, source], b.e_ctx[:, source], atol=1e-4)
+
+
 def test_history_scoring_hides_the_whole_final_run():
     torch.manual_seed(0)
     model = _model().eval()
     data = _Fake(2)
-    b = score_loader(model, DataLoader(data, batch_size=2), "cpu", N)
+    b = score_loader(model, DataLoader(data, batch_size=2), "cpu", N, ADJ)
     with torch.no_grad():
         x = torch.stack([data[i]["x"] for i in range(2)])
         m = torch.zeros_like(x)
@@ -95,7 +150,7 @@ def test_history_scoring_hides_the_whole_final_run():
 
 
 def test_every_pooling_rule_is_implemented():
-    b = score_loader(_model(), DataLoader(_Fake(), batch_size=5), "cpu", N)
+    b = score_loader(_model(), DataLoader(_Fake(), batch_size=5), "cpu", N, ADJ)
     for rule in ScoreBundle.DETECTION_RULES:
         s = b.detection_score(rule)
         assert s.shape == (5,) and np.isfinite(s).all()
@@ -126,6 +181,20 @@ def test_f1_at_budget_respects_the_alert_limit():
     out = f1_at_budget(y, s, 0.01)
     # A 1% budget over 1000 runs cannot recall more than 10 of ~100 incidents.
     assert out["recall@0.01"] <= 0.12
+
+
+def test_budget_holds_when_scores_are_heavily_tied():
+    """Saturated scores must not be able to blow the alert budget open.
+
+    Robust-scaled features are clipped, so anomaly scores pile up on identical
+    values. Thresholding with `s >= threshold` then alerts on the whole tied
+    block at once, which quietly spends far more than the budget allows.
+    """
+    y = np.zeros(1000, dtype=int)
+    y[:100] = 1
+    s = np.full(1000, 12.0)             # every score identical
+    out = f1_at_budget(y, s, 0.01)
+    assert out["recall@0.01"] <= 0.11
 
 
 def test_point_adjustment_inflates_a_weak_detector():
