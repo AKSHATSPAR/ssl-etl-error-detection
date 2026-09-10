@@ -1,0 +1,20 @@
+# Environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Generated data & model artefacts (regenerate with scripts/, do not commit)
+data/
+artifacts/
+runs/
+*.npz
+*.parquet
+*.pt
+*.ckpt
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
