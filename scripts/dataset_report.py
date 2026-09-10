@@ -58,30 +58,32 @@ def fig_propagation(d: ETLData, out: Path) -> None:
     """A node x time heat-map around one incident, showing the blast radius."""
     roots = np.where(d.y_root.sum(axis=1) > 0)[0]
     roots = roots[(roots > 100) & (roots < len(d.X) - 100)]
-    # Pick an incident originating early in the DAG so there is something to see.
-    best_t, best_node = None, None
-    for t in roots:
-        n = int(np.argmax(d.y_root[t]))
-        if n <= 4:
-            best_t, best_node = int(t), n
-            break
-    if best_t is None:
-        best_t, best_node = int(roots[0]), int(np.argmax(d.y_root[roots[0]]))
+    # Show the incident with the widest measured reach that originates early in
+    # the DAG -- the case where localization is hardest and most worth seeing.
+    early = [t for t in roots if int(np.argmax(d.y_root[t])) <= 4]
+    pool = early or list(roots)
+    best_t = int(max(pool, key=lambda t: d.y_anom[t].sum()))
+    best_node = int(np.argmax(d.y_root[best_t]))
 
     lo, hi = best_t - 24, best_t + 24
-    dev = np.abs(d.Xz[lo:hi]).max(axis=2).T          # [N, time]
+    # Deviation from the counterfactual, not from the global median: healthy
+    # seasonality swings the robust z by several units on its own, which would
+    # bury the blast radius in noise. Against the counterfactual, a healthy run
+    # is exactly zero by construction.
+    dev = (np.abs(d.X[lo:hi] - d.X_cf[lo:hi]) / d.scaler.scale).max(axis=2).T
 
     fig, ax = plt.subplots(figsize=(9, 3.0))
     im = ax.imshow(dev, aspect="auto", cmap="magma", origin="lower",
-                   extent=[lo, hi, -0.5, d.n_nodes - 0.5], vmin=0, vmax=8)
+                   extent=[lo, hi, -0.5, d.n_nodes - 0.5], vmin=0, vmax=10)
     ax.set_yticks(range(d.n_nodes))
     ax.set_yticklabels(d.node_names, fontsize=7)
     ax.axvline(best_t, color="#63b3ed", ls="--", lw=1.0)
     ax.set_xlabel("pipeline run")
+    reached = int(d.y_anom[best_t].sum())
     ax.set_title(f"Blast radius: incident originates at '{d.node_names[best_node]}' "
-                 f"(dashed line) and every descendant lights up")
+                 f"(dashed line); {reached} of {d.n_nodes} nodes measurably move")
     ax.grid(False)
-    fig.colorbar(im, ax=ax, label="max |robust z| across features")
+    fig.colorbar(im, ax=ax, label="max deviation from counterfactual (robust units)")
     fig.tight_layout()
     fig.savefig(out / "fig2_propagation.png")
     plt.close(fig)
