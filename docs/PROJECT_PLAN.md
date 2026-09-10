@@ -146,6 +146,12 @@ quantify how much is lost by dropping labels.
 
 ## 6. Design decisions worth defending in a viva
 
+**Counterfactual propagation labels.** Labelling the whole descendant set as
+anomalous is an over-approximation that some faults falsify outright. Re-running
+each faulty batch with the fault removed, under identical seeds, turns
+propagation from an assumption into a measurement. The topological label is kept
+alongside so the two can be compared directly in the results.
+
 **Row-level simulation instead of feature-level.** Injecting a fault into the
 *features* would mean hand-writing how it propagates, and the model would then be
 learning our propagation rules rather than a data pipeline. Corrupting the rows and

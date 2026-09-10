@@ -78,6 +78,24 @@ misfire on: daily and weekly seasonality, a growth trend, slow drift in the
 customer-country mix, and marketing campaigns that lift volume ~1.7x for a day or
 two. These are labelled *normal* on purpose.
 
+### Propagation labels are measured, not assumed
+
+The obvious way to label "which tasks did this incident affect" is *the origin
+plus every descendant*. That is wrong, and provably so: an unexpected extra
+column is ignored by every downstream `SELECT`, and a task that blows its SLA
+still emits perfectly correct rows. Labelling those descendants anomalous would
+punish a detector for being right.
+
+So the simulator re-runs **every faulty batch a second time with the fault
+removed** and everything else — source rows, telemetry noise, scheduling jitter —
+held bit-identical, via per-node seeded RNG. A node is labelled affected only if
+its profile actually moved away from what that same batch would otherwise have
+produced. Measured reach comes out at **2.6 of 9 nodes** per incident versus 4.4
+under the topological assumption, and `schema_column_add` correctly reaches
+exactly one.
+
+Both labels are stored, so the difference can be reported as an ablation.
+
 Each task run is summarised into a **38-dimensional data-quality profile**
 (`simulator/profiler.py`) covering operational telemetry, schema stability,
 completeness, metric distribution, categorical distribution, freshness and

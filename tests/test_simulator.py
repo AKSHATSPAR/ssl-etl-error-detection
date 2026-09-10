@@ -56,7 +56,7 @@ def test_dag_is_topologically_ordered_and_connected():
 
 def test_clean_run_has_no_labels_and_finite_features(clean_run):
     assert clean_run["y_type"].sum() == 0
-    assert clean_run["y_anom"].sum() == 0
+    assert clean_run["y_topo"].sum() == 0
     assert np.isfinite(clean_run["X"]).all()
 
 
@@ -118,19 +118,19 @@ def test_data_faults_propagate_downstream_but_operational_ones_do_not():
     pipe = build_pipeline()
 
     _, dirty, t = _paired_run("null_spike", "clean_orders")
-    affected = dirty["y_anom"][t]
+    affected = dirty["y_topo"][t]
     for d in pipe.descendants("clean_orders"):
         assert affected[pipe.index[d]] == 1, f"{d} should inherit the incident"
 
     _, dirty_op, t = _paired_run("resource_degradation", "clean_orders")
-    assert dirty_op["y_anom"][t].sum() == 1, "an operational fault must stay local"
+    assert dirty_op["y_topo"][t].sum() == 1, "an operational fault must stay local"
 
 
 def test_root_cause_is_a_subset_of_affected():
     cfg = SimConfig(n_batches=300, seed=13, base_orders=300, fault_rate_test=0.3)
     res = simulate(cfg, progress=False)
     assert res["y_root"].sum() > 0
-    assert np.all(res["y_root"] <= res["y_anom"])
+    assert np.all(res["y_root"] <= res["y_topo"])
 
 
 def test_duplicate_records_inflates_downstream_revenue():
@@ -140,3 +140,59 @@ def test_duplicate_records_inflates_downstream_revenue():
     j = pipe.index["aggregate_daily"]
     k = FEATURE_INDEX["metric_mean"]
     assert dirty["X"][t, j, k] > clean["X"][t, j, k] * 1.05
+
+
+# --------------------------------------------------------------------------- #
+# Counterfactual labelling
+# --------------------------------------------------------------------------- #
+
+def test_counterfactual_equals_factual_on_healthy_batches(clean_run):
+    """With no fault anywhere, the counterfactual run must be the factual run."""
+    assert np.array_equal(clean_run["X"], clean_run["X_cf"])
+
+
+def test_counterfactual_isolates_the_fault():
+    """Nodes the fault cannot reach must be bit-identical in the counterfactual.
+
+    This is the invariant the measured propagation labels rest on: per-node
+    seeded RNG means the only difference between the two runs is the fault.
+    """
+    pipe = build_pipeline()
+    cfg = SimConfig(n_batches=8, seed=21, base_orders=400,
+                    fault_rate_train=0.0, fault_rate_test=0.0)
+    import etlguard.simulator.generator as gen
+    t = 6
+    original = gen.schedule_faults
+    gen.schedule_faults = lambda *a, **k: [
+        FaultEvent("null_spike", "clean_orders", t, 1, 0.9)]
+    try:
+        res = simulate(cfg, progress=False)
+    finally:
+        gen.schedule_faults = original
+
+    unreachable = [n.name for n in pipe.nodes
+                   if n.name != "clean_orders"
+                   and "clean_orders" not in pipe.descendants(n.name)
+                   and n.name not in pipe.descendants("clean_orders")]
+    assert unreachable, "expected some nodes outside the blast radius"
+    for name in unreachable:
+        i = pipe.index[name]
+        assert np.array_equal(res["X"][t, i], res["X_cf"][t, i]), \
+            f"{name} is outside the blast radius but changed"
+
+
+def test_non_propagating_faults_are_labelled_local():
+    """An extra unread column is ignored downstream, so it must not spread."""
+    from etlguard.data.dataset import RobustScaler, derive_affected
+
+    cfg = SimConfig(n_batches=600, seed=31, base_orders=300, fault_rate_test=0.4)
+    res = simulate(cfg, progress=False)
+    scaler = RobustScaler.fit(res["X"][res["split"] == 0])
+    measured = derive_affected(res["X"], res["X_cf"], scaler.scale)
+
+    add_id = res["fault_labels"].index("schema_column_add")
+    m = res["y_type"] == add_id
+    if m.sum() >= 3:
+        assert measured[m].sum(axis=1).mean() < 2.0
+        assert res["y_topo"][m].sum(axis=1).mean() > 2.0, \
+            "the topological label should over-approximate here"

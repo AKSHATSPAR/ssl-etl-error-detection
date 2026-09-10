@@ -1,0 +1,49 @@
+# Default configuration. Chunk 1 uses the `data` block; the rest is the
+# contract chunk 2 will implement against.
+
+data:
+  root: data/etl_v1
+  window: 32              # runs of context (32 hours)
+  batch_size: 128
+  affected_tau: 3.0       # robust units of deviation before a node counts as affected
+
+simulator:
+  n_batches: 8000
+  seed: 7
+  base_orders: 900
+  fault_rate_train: 0.03  # historical contamination the SSL model must tolerate
+  fault_rate_test: 0.14
+  train_frac: 0.60
+  val_frac: 0.15
+
+model:
+  name: st_transformer     # factorised spatio-temporal encoder
+  d_model: 128
+  n_heads: 4
+  n_layers: 4
+  ff_mult: 4
+  dropout: 0.1
+  dag_attention_bias: true # bias structural attention towards ancestors/descendants
+
+ssl:
+  mask_ratio: 0.35
+  mask_unit: feature_group # mask whole symptom families, not scattered scalars
+  loss_weights:
+    masked_reconstruction: 1.0
+    ancestor_consistency: 0.5
+    contrastive: 0.1
+  temperature: 0.1
+
+train:
+  epochs: 60
+  lr: 3.0e-4
+  weight_decay: 0.01
+  warmup_steps: 500
+  grad_clip: 1.0
+  seed: 7
+  device: auto             # cuda -> mps -> cpu
+
+eval:
+  alert_budget: 0.01       # alerts per run, for F1-at-budget
+  point_adjust: false      # reported alongside, never as the headline metric
+  localization_k: [1, 3]

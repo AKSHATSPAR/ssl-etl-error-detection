@@ -102,9 +102,8 @@ class SourceFactory:
         w = np.clip(self.country_w + noise, 0.01, None)
         self.country_w = w / w.sum()
 
-    def batch(self, ws: pd.Timestamp, we: pd.Timestamp, n_orders: int
-              ) -> Dict[str, pd.DataFrame]:
-        rng = self.rng
+    def batch(self, ws: pd.Timestamp, we: pd.Timestamp, n_orders: int,
+              rng: np.random.Generator) -> Dict[str, pd.DataFrame]:
         n_cust = int(max(200, 0.4 * n_orders + 250))
 
         # ---- customers snapshot (a slice of the pool, re-weighted by drift) ----
@@ -264,6 +263,67 @@ def schedule_faults(cfg: SimConfig, pipe: Pipeline, n_train: int,
 # Main loop
 # --------------------------------------------------------------------------- #
 
+def _run_pipeline(pipe, sources: Dict[str, pd.DataFrame], ctx: dict,
+                  fault_by_node: Dict[str, FaultEvent], contention: float,
+                  seed: int, t: int) -> np.ndarray:
+    """Execute every task once and return the ``[N, F]`` profile matrix.
+
+    Each node draws its telemetry noise and its fault randomness from its *own*
+    seeded generator, keyed on ``(seed, batch, node)``.  That isolation is what
+    makes the counterfactual exact: re-running with ``fault_by_node={}`` produces
+    a bit-identical result everywhere the fault did not reach, so any difference
+    that remains is caused by the fault and nothing else.
+    """
+    out = np.zeros((pipe.n_nodes, N_FEATURES), dtype=np.float32)
+    outputs: Dict[str, pd.DataFrame] = {}
+    producer_of = {n.spec.name: n.name for n in pipe.nodes}
+
+    for i, node in enumerate(pipe.nodes):
+        crashed = False
+        if node.is_source:
+            df = sources[node.name]
+            rows_in = len(df)
+        else:
+            parents = [outputs[p] for p in node.parents]
+            rows_in = sum(len(p) for p in parents)
+            try:
+                df = node.execute(parents, ctx)
+            except Exception:
+                # A task that cannot run at all still produces telemetry: an
+                # empty output plus retries. That is a legitimate ETL failure
+                # mode, not a simulator bug, so we record it rather than die.
+                df = pd.DataFrame(columns=node.spec.names)
+                crashed = True
+
+        meta_rng = np.random.default_rng([seed, t, 100 + i])
+        meta = _sample_meta(node, rows_in, len(df), contention, meta_rng)
+        if crashed:
+            meta.retry_count += 3
+            meta.schema_change_flag = 1.0
+
+        if node.name in fault_by_node:
+            fault_rng = np.random.default_rng([seed, t, 200 + i])
+            df, meta = apply_fault(df, node.spec, meta, fault_by_node[node.name],
+                                   fault_rng)
+
+        fk_ref = None
+        fks = node.spec.by_role(S.Role.FK)
+        if fks and fks[0].references:
+            ref_table, ref_col = fks[0].references.split(".")
+            src_node = producer_of.get(ref_table)
+            if src_node in outputs and ref_col in outputs[src_node].columns:
+                fk_ref = outputs[src_node][ref_col].to_numpy()
+            elif src_node in sources and ref_col in sources[src_node].columns:
+                fk_ref = sources[src_node][ref_col].to_numpy()
+
+        out[i] = profile_table(df, node.spec, meta,
+                               ctx["window_start"], ctx["window_end"], fk_ref)
+        outputs[node.name] = df
+
+    ctx["_last_outputs"] = outputs
+    return out
+
+
 def simulate(cfg: SimConfig, progress: bool = True,
              dump_examples: int = 0) -> Dict[str, object]:
     rng = np.random.default_rng(cfg.seed)
@@ -282,14 +342,13 @@ def simulate(cfg: SimConfig, progress: bool = True,
             by_batch.setdefault(b, []).append(e)
 
     X = np.zeros((T, N, F), dtype=np.float32)
-    y_anom = np.zeros((T, N), dtype=np.uint8)
+    X_cf = np.zeros((T, N, F), dtype=np.float32)   # counterfactual: same batch, no fault
+    y_topo = np.zeros((T, N), dtype=np.uint8)      # topological over-approximation
     y_root = np.zeros((T, N), dtype=np.uint8)
     y_type = np.zeros(T, dtype=np.int16)
     severity = np.zeros(T, dtype=np.float32)
 
     factory = SourceFactory(cfg, rng)
-    # Which node emits the table a foreign key points at.
-    producer_of = {n.spec.name: n.name for n in pipe.nodes}
     segment_lookup = pd.Series(
         [S.SEGMENTS[i] for i in factory.cust_segment], index=factory.cust_ids)
 
@@ -302,9 +361,13 @@ def simulate(cfg: SimConfig, progress: bool = True,
     for t in iterator:
         ws, we = ts[t], ts[t] + pd.Timedelta(minutes=cfg.freq_minutes)
         factory.step_drift()
-        contention = 1.0 + 0.22 * np.sin(2 * np.pi * ts[t].hour / 24.0 + 1.1) \
-                     + float(rng.normal(0, 0.04))
-        sources = factory.batch(ws, we, int(volume[t]))
+
+        contention_rng = np.random.default_rng([cfg.seed, t, 1])
+        contention = float(1.0 + 0.22 * np.sin(2 * np.pi * ts[t].hour / 24.0 + 1.1)
+                           + contention_rng.normal(0, 0.04))
+
+        src_rng = np.random.default_rng([cfg.seed, t, 0])
+        sources = factory.batch(ws, we, int(volume[t]), src_rng)
 
         active = by_batch.get(t, [])
         by_node: Dict[str, FaultEvent] = {e.node: e for e in active}
@@ -314,60 +377,29 @@ def simulate(cfg: SimConfig, progress: bool = True,
             severity[t] = worst.severity
         for e in active:
             y_root[t, pipe.index[e.node]] = 1
-            y_anom[t, pipe.index[e.node]] = 1
-            # Operational-only incidents do not corrupt rows, so they do not spread.
+            y_topo[t, pipe.index[e.node]] = 1
             if REGISTRY[e.fault_type].channel != "operational":
                 for d in pipe.descendants(e.node):
-                    y_anom[t, pipe.index[d]] = 1
+                    y_topo[t, pipe.index[d]] = 1
 
         ctx = {"window_start": ws, "window_end": we, "segment_lookup": segment_lookup}
-        outputs: Dict[str, pd.DataFrame] = {}
+        X[t] = _run_pipeline(pipe, sources, ctx, by_node, contention, cfg.seed, t)
+        outputs = ctx.pop("_last_outputs")
 
-        for node in pipe.nodes:
-            crashed = False
-            if node.is_source:
-                df = sources[node.name]
-                rows_in = len(df)
-            else:
-                parents = [outputs[p] for p in node.parents]
-                rows_in = sum(len(p) for p in parents)
-                try:
-                    df = node.execute(parents, ctx)
-                    crashed = False
-                except Exception:
-                    # A task that cannot run at all still produces telemetry: an
-                    # empty output plus retries. This is a legitimate ETL failure
-                    # mode, not a simulator bug, so we record it rather than die.
-                    df = pd.DataFrame(columns=node.spec.names)
-                    crashed = True
-
-            meta = _sample_meta(node, rows_in, len(df), contention, rng)
-            if not node.is_source and crashed:
-                meta.retry_count += 3
-                meta.schema_change_flag = 1.0
-
-            if node.name in by_node:
-                df, meta = apply_fault(df, node.spec, meta, by_node[node.name], rng)
-
-            fk_ref = None
-            fks = node.spec.by_role(S.Role.FK)
-            if fks and fks[0].references:
-                ref_table, ref_col = fks[0].references.split(".")
-                src_node = producer_of.get(ref_table)
-                if src_node in outputs and ref_col in outputs[src_node].columns:
-                    fk_ref = outputs[src_node][ref_col].to_numpy()
-                elif src_node in sources and ref_col in sources[src_node].columns:
-                    fk_ref = sources[src_node][ref_col].to_numpy()
-
-            X[t, pipe.index[node.name]] = profile_table(
-                df, node.spec, meta, ws, we, fk_ref)
-            outputs[node.name] = df
+        if active:
+            # Same batch, same seeds, no fault: the honest baseline for "what
+            # this run should have looked like".
+            ctx_cf = {"window_start": ws, "window_end": we,
+                      "segment_lookup": segment_lookup}
+            X_cf[t] = _run_pipeline(pipe, sources, ctx_cf, {}, contention, cfg.seed, t)
+            ctx_cf.pop("_last_outputs", None)
+        else:
+            X_cf[t] = X[t]
 
         if dump_examples and len(examples) < dump_examples * 2:
             tag = "faulty" if active else "healthy"
-            key = f"{tag}_t{t}"
             if sum(1 for k in examples if k.startswith(tag)) < dump_examples:
-                examples[key] = outputs["join_payments"].head(200).copy()
+                examples[f"{tag}_t{t}"] = outputs["join_payments"].head(200).copy()
 
     split = np.zeros(T, dtype=np.uint8)
     split[n_train:n_train + n_val] = 1
@@ -375,7 +407,8 @@ def simulate(cfg: SimConfig, progress: bool = True,
 
     return {
         "X": X,
-        "y_anom": y_anom,
+        "X_cf": X_cf,
+        "y_topo": y_topo,
         "y_root": y_root,
         "y_type": y_type,
         "severity": severity,
