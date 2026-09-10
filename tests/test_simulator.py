@@ -88,7 +88,7 @@ def test_healthy_row_counts_are_stable_but_seasonal(clean_run):
 # --------------------------------------------------------------------------- #
 
 def _paired_run(fault_type: str, node: str, severity: float = 0.9, seed: int = 5):
-    """Same seed, same timeline — the only difference is the injected fault."""
+    """Same seed, same timeline, so the only difference is the injected fault."""
     import etlguard.simulator.generator as gen
     cfg = SimConfig(n_batches=8, seed=seed, base_orders=400,
                     fault_rate_train=0.0, fault_rate_test=0.0)

@@ -5,7 +5,7 @@ tasks then consume those corrupted rows, propagation through the DAG is an
 emergent property of the simulation: a null spike at ``clean_orders`` shows up
 as a revenue dip at ``aggregate_daily`` without us writing a single line of
 propagation logic.  This is what makes root-cause localisation a genuine
-problem — at detection time many nodes look wrong, but only one is the origin.
+problem: at detection time many nodes look wrong, but only one is the origin.
 """
 
 from __future__ import annotations
@@ -310,6 +310,29 @@ def resource_degradation(df, spec, meta, rng, sev, params):
     params["slowdown"] = 1.8 + 6.0 * sev
     return df, meta
 
+
+#: The symptom family each fault is *mechanistically* expected to move, used as
+#: ground truth when scoring the explainability output. Sets rather than single
+#: values because several faults legitimately present through more than one
+#: family: a duplicated batch inflates both the duplicate rate (completeness)
+#: and the row ratio (operational), and neither reading is wrong.
+SYMPTOM_FAMILY: Dict[str, set] = {
+    "schema_column_drop": {"schema"},
+    "schema_column_add": {"schema"},
+    "type_mismatch": {"schema", "completeness"},
+    "null_spike": {"completeness"},
+    "pk_null": {"completeness"},
+    "duplicate_records": {"completeness", "operational"},
+    "row_loss_truncation": {"operational"},
+    "unit_change": {"metric_distribution"},
+    "value_corruption": {"metric_distribution"},
+    "category_corruption": {"categorical_distribution"},
+    "timezone_shift": {"temporal"},
+    "late_arrival": {"temporal", "operational"},
+    "fk_break": {"integrity"},
+    "join_fanout": {"completeness", "operational", "metric_distribution"},
+    "resource_degradation": {"operational"},
+}
 
 FAULT_TYPES: List[str] = sorted(REGISTRY.keys())
 FAULT_TYPE_INDEX: Dict[str, int] = {n: i for i, n in enumerate(FAULT_TYPES)}

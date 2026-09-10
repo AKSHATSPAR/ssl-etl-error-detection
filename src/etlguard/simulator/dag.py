@@ -2,8 +2,8 @@
 
 Each node's ``execute`` runs an honest transformation (cast, filter, dedup, join,
 group-by) over the rows handed to it by its parents.  Transforms are written
-defensively — a column may be missing because an upstream fault dropped it, or
-full of nulls because an upstream cast failed — exactly as a production job
+defensively, because a column may be missing after an upstream fault dropped it,
+or full of nulls after an upstream cast failed, exactly as a production job
 degrades rather than crashing.
 """
 
@@ -37,7 +37,7 @@ def _ensure_key(df: pd.DataFrame, key: str) -> pd.DataFrame:
     """Guarantee a join key exists and is numeric.
 
     When an upstream schema fault drops the key, we materialise it as all-NaN so
-    the merge still runs and simply matches nothing — the same outcome a real job
+    the merge still runs and simply matches nothing, which is the outcome a real job
     produces when it joins on a column that stopped arriving.
     """
     out = df.copy()

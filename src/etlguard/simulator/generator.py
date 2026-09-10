@@ -173,7 +173,7 @@ class SourceFactory:
 
 def _volume_curve(cfg: SimConfig, ts: pd.DatetimeIndex,
                   rng: np.random.Generator) -> np.ndarray:
-    """Seasonal, trending, campaign-perturbed order volume — all of it *normal*."""
+    """Seasonal, trending, campaign-perturbed order volume, all of it *normal*."""
     t = np.arange(len(ts))
     hour = ts.hour.to_numpy()
     dow = ts.dayofweek.to_numpy()
@@ -222,7 +222,7 @@ def schedule_faults(cfg: SimConfig, pipe: Pipeline, n_train: int,
     """Lay incidents over the timeline, denser after the training period.
 
     Training history is only lightly contaminated (as real history is), which is
-    what lets a self-supervised model learn "normal" without labels — while still
+    what lets a self-supervised model learn "normal" without labels, while still
     forcing it to be robust to the few bad batches it does see.
     """
     events: List[FaultEvent] = []

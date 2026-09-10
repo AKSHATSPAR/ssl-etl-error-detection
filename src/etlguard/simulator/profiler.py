@@ -137,7 +137,7 @@ class RunMeta:
 
 
 def _safe(x: float) -> float:
-    """Map NaN/inf to 0.0 — an empty or fully-null column must not poison the tensor."""
+    """Map NaN/inf to 0.0, so an empty or fully-null column cannot poison the tensor."""
     if x is None:
         return 0.0
     x = float(x)

@@ -1,7 +1,7 @@
 """Sanity-check the simulator: does each fault type actually move the features?
 
-For every registered fault we run the *same* batch twice — once healthy, once
-with the fault injected at a given node — using an identical RNG seed, so the
+For every registered fault we run the *same* batch twice, once healthy and once
+with the fault injected at a given node, using an identical RNG seed, so the
 only difference between the two runs is the fault itself.  We then report which
 profile features moved the most, at the injected node and downstream.
 
