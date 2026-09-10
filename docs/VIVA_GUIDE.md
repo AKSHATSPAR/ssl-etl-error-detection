@@ -79,6 +79,14 @@ finds one.
 
 ## The terminal demo (backup, and for anyone who wants proof it runs)
 
+**This one is not portable.** It needs the dataset, the trained model and the
+Python environment, none of which are in the git repository, because they are
+large and regenerable. So a fresh clone on another laptop will not run it until
+you rebuild them, which takes about twenty-five minutes.
+
+The visual demo has no such problem. It is one file with the results already
+inside it, so copying it anywhere is enough.
+
 ## Before you walk in
 
 Open a terminal, go to the project folder, and run this once to check everything
@@ -88,8 +96,8 @@ is in place:
 cd ~/Downloads/dl_project && ls data/etl_v1/dataset.npz runs/ssl/best.pt
 ```
 
-If both files are listed, you are ready. If either is missing, the demo cannot
-run, and you need to rebuild it:
+If both files are listed, you are ready. If either is missing, which is what a
+fresh clone looks like, rebuild them:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m etlguard.data.build_dataset --n-batches 8000 --out data/etl_v1
