@@ -1,0 +1,43 @@
+device=mps  params=1,124,518  train_windows=4769  val_windows=1200
+epoch   1  train_recon=0.6836  val_recon=0.9941  contrast=0.000  *
+epoch   2  train_recon=0.6396  val_recon=0.9163  contrast=0.000  *
+epoch   3  train_recon=0.5702  val_recon=0.8385  contrast=0.000  *
+epoch   4  train_recon=0.5075  val_recon=0.7235  contrast=0.000  *
+epoch   5  train_recon=0.4209  val_recon=0.6374  contrast=0.000  *
+epoch   6  train_recon=0.3694  val_recon=0.5833  contrast=0.000  *
+epoch   7  train_recon=0.3338  val_recon=0.5668  contrast=0.000  *
+epoch   8  train_recon=0.3119  val_recon=0.5411  contrast=0.000  *
+epoch   9  train_recon=0.3027  val_recon=0.5244  contrast=0.000  *
+epoch  10  train_recon=0.2916  val_recon=0.5205  contrast=0.000  *
+epoch  11  train_recon=0.2856  val_recon=0.5040  contrast=0.000  *
+epoch  12  train_recon=0.2788  val_recon=0.5008  contrast=0.000  *
+epoch  13  train_recon=0.2731  val_recon=0.4899  contrast=0.000  *
+epoch  14  train_recon=0.2677  val_recon=0.4903  contrast=0.000
+epoch  15  train_recon=0.2650  val_recon=0.4771  contrast=0.000  *
+epoch  16  train_recon=0.2617  val_recon=0.4797  contrast=0.000
+epoch  17  train_recon=0.2580  val_recon=0.4617  contrast=0.000  *
+epoch  18  train_recon=0.2571  val_recon=0.4608  contrast=0.000  *
+epoch  19  train_recon=0.2537  val_recon=0.4755  contrast=0.000
+epoch  20  train_recon=0.2532  val_recon=0.4624  contrast=0.000
+epoch  21  train_recon=0.2516  val_recon=0.4544  contrast=0.000  *
+epoch  22  train_recon=0.2483  val_recon=0.4488  contrast=0.000  *
+epoch  23  train_recon=0.2491  val_recon=0.4610  contrast=0.000
+epoch  24  train_recon=0.2438  val_recon=0.4547  contrast=0.000
+epoch  25  train_recon=0.2466  val_recon=0.4445  contrast=0.000  *
+epoch  26  train_recon=0.2426  val_recon=0.4507  contrast=0.000
+epoch  27  train_recon=0.2442  val_recon=0.4463  contrast=0.000
+epoch  28  train_recon=0.2417  val_recon=0.4456  contrast=0.000
+epoch  29  train_recon=0.2407  val_recon=0.4448  contrast=0.000
+epoch  30  train_recon=0.2399  val_recon=0.4431  contrast=0.000  *
+epoch  31  train_recon=0.2401  val_recon=0.4372  contrast=0.000  *
+epoch  32  train_recon=0.2422  val_recon=0.4409  contrast=0.000
+epoch  33  train_recon=0.2390  val_recon=0.4348  contrast=0.000  *
+epoch  34  train_recon=0.2399  val_recon=0.4377  contrast=0.000
+epoch  35  train_recon=0.2393  val_recon=0.4381  contrast=0.000
+epoch  36  train_recon=0.2395  val_recon=0.4445  contrast=0.000
+epoch  37  train_recon=0.2387  val_recon=0.4439  contrast=0.000
+epoch  38  train_recon=0.2385  val_recon=0.4376  contrast=0.000
+epoch  39  train_recon=0.2392  val_recon=0.4434  contrast=0.000
+epoch  40  train_recon=0.2379  val_recon=0.4474  contrast=0.000
+
+best val_recon=0.4348 at epoch 33  (876s)  ->  runs/abl_no_dag_bias/best.pt

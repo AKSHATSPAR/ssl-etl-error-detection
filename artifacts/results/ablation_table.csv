@@ -1,0 +1,6 @@
+ablation,AUPRC,Hit@1,MRR,delta Hit@1,verdict
+clean_train,0.9515,0.8144,0.8921,0.0092,within seed noise
+no_dag_bias,0.9527,0.8007,0.8841,-0.0046,within seed noise
+no_calendar,0.9528,0.7904,0.8794,-0.0149,within seed noise
+contrastive,0.9532,0.7869,0.8797,-0.0183,within seed noise
+longer_training,0.9475,0.756,0.8606,-0.0493,OUTSIDE 2 sd

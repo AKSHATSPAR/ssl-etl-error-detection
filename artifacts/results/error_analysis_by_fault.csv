@@ -1,0 +1,16 @@
+fault,n,hit@1,mean_rank,mean_origin_depth,mean_nodes_affected
+row_loss_truncation,28,0.286,2.393,1.286,3.893
+duplicate_records,35,0.429,1.571,0.686,3.257
+value_corruption,11,0.636,2.636,3.091,2.182
+fk_break,6,0.667,1.5,1.0,3.0
+null_spike,18,0.722,1.278,1.222,2.333
+timezone_shift,21,0.762,1.857,1.762,1.905
+category_corruption,21,0.857,1.19,2.095,2.286
+schema_column_drop,44,0.886,1.205,3.045,1.841
+type_mismatch,16,0.938,1.062,1.188,2.562
+pk_null,17,0.941,1.059,2.235,2.941
+unit_change,20,0.95,1.05,1.9,2.8
+join_fanout,5,1.0,1.0,3.0,3.0
+late_arrival,21,1.0,1.0,1.762,1.524
+resource_degradation,16,1.0,1.0,1.438,1.0
+schema_column_add,12,1.0,1.0,0.583,1.0

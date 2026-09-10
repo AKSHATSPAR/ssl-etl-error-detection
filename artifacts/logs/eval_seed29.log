@@ -1,0 +1,6 @@
+scored calibration+val+test in 111.6s
+detection rule selected on val AUPRC: max_anc  ({'max_hist': 0.937, 'mean_hist': 0.89, 'max_ctx': 0.945, 'max_anc': 0.946, 'top2_hist': 0.916})
+
+method                 AUROC   AUPRC  bestF1   F1@1%   Hit@1   Hit@3     MRR
+----------------------------------------------------------------------------
+seed29                 0.974   0.951   0.931   0.129   0.797   0.976   0.881

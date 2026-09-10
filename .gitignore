@@ -5,14 +5,35 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 
-# Generated data & model artefacts (regenerate with scripts/, do not commit)
+# Datasets and checkpoints: large and fully regenerable, keep them out.
 data/
-artifacts/
 runs/
 *.npz
 *.parquet
 *.pt
 *.ckpt
+
+# Artifacts: exclude by default, but keep the finished deliverables so the repo
+# shows the report, the figures and the result tables without anyone having to
+# run a four-hour pipeline first. Note this excludes the *contents* rather than
+# the directory, because git will not descend into an excluded directory and the
+# negations below would never be considered.
+artifacts/**
+!artifacts/
+!artifacts/report/
+!artifacts/report/*.docx
+# reference.docx is a pandoc style template the build script regenerates.
+artifacts/report/reference.docx
+!artifacts/results/
+!artifacts/results/*.png
+!artifacts/results/*.csv
+!artifacts/results/*.md
+!artifacts/results/results_*.json
+!artifacts/dataset_report/
+!artifacts/dataset_report/*.png
+!artifacts/dataset_report/*.csv
+!artifacts/logs/
+!artifacts/logs/*.log
 
 # OS / editor
 .DS_Store
