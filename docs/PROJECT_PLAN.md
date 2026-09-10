@@ -133,6 +133,19 @@ quantify how much is lost by dropping labels.
 
 ---
 
+## 4b. Scope decisions (confirmed with the student, 2026-09-10)
+
+* **Dataset:** the purpose-built synthetic benchmark is the dataset. No public
+  ETL-failure corpus with root-cause annotations exists, so constructing one is
+  part of the contribution rather than a shortcut around a missing baseline.
+* **Deliverable:** working code *plus* a written report/paper. Every result must
+  therefore be reproducible from a script, and every figure regenerable — no
+  numbers that exist only in a terminal scrollback.
+* **Compute budget:** training runs are sized to finish in minutes on Apple
+  Silicon (MPS). This is a deliberate constraint, not a limitation: the project
+  needs many ablation runs far more than it needs one large model, and the
+  dataset (8000 x 9 x 38) does not justify a big backbone.
+
 ## 5. Phase plan
 
 | Chunk | Contents | Status |
