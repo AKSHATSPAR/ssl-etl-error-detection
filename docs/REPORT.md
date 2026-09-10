@@ -956,7 +956,11 @@ PYTHONPATH=src python -m etlguard.train.pretrain --epochs 40 --out runs/ssl
 # Main evaluation with all baselines
 PYTHONPATH=src python -m etlguard.eval.run_eval --ckpt runs/ssl/best.pt --save-scores
 
-# Seeds and ablations, about two hours
+# Two ablation rows compare against a dataset built after the timestamp units
+# fix, so build that too. run_experiments skips those rows if it is missing.
+PYTHONPATH=src python -m etlguard.data.build_dataset --n-batches 8000 --out data/etl_v2
+
+# Seeds and ablations, about three hours
 PYTHONPATH=src python scripts/run_experiments.py --only all
 
 # Attribution, error analysis, tables and figures

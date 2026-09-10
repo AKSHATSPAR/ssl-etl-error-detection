@@ -175,8 +175,8 @@ by 38 does not justify a big backbone.
 |---|---|---|
 | 1 | Simulator, fault taxonomy, profiler, dataset builder, windowing and robust normalisation, test suite, repo scaffold | done |
 | 2 | Backbone and SSL objectives, training loop, classical and deep baselines, evaluation harness, literature review | done |
-| 3 | Ablations, Integrated Gradients attribution, attention rollout, error analysis | next |
-| 4 | Final results, figures, written report | |
+| 3 | Ablations, Integrated Gradients attribution, attention rollout, error analysis | done |
+| 4 | Final results, figures, written report, slides and demo | done |
 
 ## 7. Design decisions worth defending in a viva
 

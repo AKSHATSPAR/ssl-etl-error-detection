@@ -305,8 +305,8 @@ Other results:
       windowing and normalisation, test suite.
 - [x] **Chunk 2.** Model, self-supervised objectives, training loop, baselines,
       evaluation harness, literature review.
-- [ ] **Chunk 3.** Ablations, Integrated Gradients attribution, error analysis.
-- [ ] **Chunk 4.** Final results, figures, written report.
+- [x] **Chunk 3.** Ablations, Integrated Gradients attribution, error analysis.
+- [x] **Chunk 4.** Final results, figures, written report, slides and demo.
 
 ## Documents
 

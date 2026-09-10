@@ -432,6 +432,10 @@ patience. Three seeds establish the noise floor at Hit@1 0.805 ± 0.011.
 | Contrastive objective added | 0.787 | -0.018 | within noise |
 | **Longer training (57 epochs)** | **0.756** | **-0.049** | **outside noise** |
 
+The table has six rows for four ideas, because the calendar appears twice: once
+as originally measured, and once re-measured after the timestamp bug that made
+the first attempt vacuous. Both give the same answer.
+
 Each null result has a reason:
 
 **The DAG bias is redundant** because the model finds the pipeline structure
@@ -587,7 +591,11 @@ PYTHONPATH=src python -m etlguard.train.pretrain --epochs 40 --out runs/ssl
 # Evaluation with all baselines
 PYTHONPATH=src python -m etlguard.eval.run_eval --ckpt runs/ssl/best.pt --save-scores
 
-# Seeds and ablations, about two hours
+# Two ablation rows compare against a dataset built after the timestamp units
+# fix, so build that too. run_experiments skips those rows if it is missing.
+PYTHONPATH=src python -m etlguard.data.build_dataset --n-batches 8000 --out data/etl_v2
+
+# Seeds and ablations, about three hours
 PYTHONPATH=src python scripts/run_experiments.py --only all
 
 # Attribution study, error analysis, tables and figures
