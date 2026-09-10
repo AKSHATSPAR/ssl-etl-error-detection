@@ -92,3 +92,19 @@ weasyprint "$OUT/lit.html" "$OUT/Literature_Review.pdf"
 
 echo "wrote $OUT/Literature_Review.docx"
 echo "wrote $OUT/Literature_Review.pdf"
+
+# ---- The viva guide, as a PDF so it can be printed and held ----
+cat > "$OUT/guide_meta.yaml" <<'YAML'
+title: "Presentation and Demo Guide"
+subtitle: "Self-Supervised AI for ETL Error Detection and Root-Cause Localization"
+lang: en-GB
+YAML
+tail -n +3 docs/VIVA_GUIDE.md > "$OUT/guide_body.md"
+pandoc "$OUT/guide_body.md" \
+  --from markdown+pipe_tables+backtick_code_blocks \
+  --to html5 --standalone \
+  --metadata-file="$OUT/guide_meta.yaml" \
+  --toc --toc-depth=2 --css=lit.css \
+  -o "$OUT/guide.html"
+weasyprint "$OUT/guide.html" "$OUT/Presentation_and_Demo_Guide.pdf"
+echo "wrote $OUT/Presentation_and_Demo_Guide.pdf"

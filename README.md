@@ -308,5 +308,22 @@ Other results:
 - [ ] **Chunk 3.** Ablations, Integrated Gradients attribution, error analysis.
 - [ ] **Chunk 4.** Final results, figures, written report.
 
-See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the full design and
-[docs/LITERATURE_REVIEW.md](docs/LITERATURE_REVIEW.md) for the review.
+## Documents
+
+| Document | What it is |
+|---|---|
+| [Report](artifacts/report/ETL_Error_Detection_Report.docx) | The full write-up, 7400 words with 8 figures |
+| [Literature review](artifacts/report/Literature_Review.pdf) | 27 papers, review matrix, themes, gap analysis |
+| [Presentation and demo guide](artifacts/report/Presentation_and_Demo_Guide.pdf) | How to run the demo and explain every part in plain words |
+| [Slides](artifacts/slides/ETL_Project_Viva.pptx) | 18 slides with speaker notes |
+| [docs/RESULTS.md](docs/RESULTS.md) | Every number, with confidence intervals |
+| [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | The research design |
+
+## Demo
+
+One command, about ten seconds. Takes a real held-out incident and diagnoses it,
+then prints the ground truth so the answer can be checked.
+
+```bash
+PYTHONPATH=src python scripts/demo.py --n 2
+```
