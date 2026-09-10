@@ -314,7 +314,9 @@ Other results:
 |---|---|
 | [Report](artifacts/report/ETL_Error_Detection_Report.docx) | The full write-up, 7400 words with 8 figures |
 | [Literature review](artifacts/report/Literature_Review.pdf) | 27 papers, review matrix, themes, gap analysis |
+| [Complete explainer](artifacts/report/Complete_Explainer.pdf) | Every concept, decision, result and mistake, in one place |
 | [Presentation and demo guide](artifacts/report/Presentation_and_Demo_Guide.pdf) | How to run the demo and explain every part in plain words |
+| [Speaking script](artifacts/report/Speaking_Script.pdf) | Word-for-word script for two presenters |
 | [Slides](artifacts/slides/ETL_Project_Viva.pptx) | 18 slides with speaker notes |
 | [docs/RESULTS.md](docs/RESULTS.md) | Every number, with confidence intervals |
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | The research design |
@@ -327,3 +329,7 @@ then prints the ground truth so the answer can be checked.
 ```bash
 PYTHONPATH=src python scripts/demo.py --n 2
 ```
+
+Or open [artifacts/web/pipeline_demo.html](artifacts/web/pipeline_demo.html) by
+double-clicking it. One file, no server, no internet: pick a run, the pipeline
+lights up, and the ground truth stays hidden behind a button.

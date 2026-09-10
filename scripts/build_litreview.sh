@@ -108,3 +108,23 @@ pandoc "$OUT/guide_body.md" \
   -o "$OUT/guide.html"
 weasyprint "$OUT/guide.html" "$OUT/Presentation_and_Demo_Guide.pdf"
 echo "wrote $OUT/Presentation_and_Demo_Guide.pdf"
+
+# ---- The explainer and the speaking script, as PDFs ----
+for pair in "EXPLAINER:The Complete Explainer:Complete_Explainer" \
+            "SPEAKING_SCRIPT:Two-Person Speaking Script:Speaking_Script"; do
+  src="${pair%%:*}"; rest="${pair#*:}"; ttl="${rest%%:*}"; out_name="${rest##*:}"
+  cat > "$OUT/${src}_meta.yaml" <<YAML
+title: "$ttl"
+subtitle: "Self-Supervised AI for ETL Error Detection and Root-Cause Localization"
+lang: en-GB
+YAML
+  tail -n +3 "docs/${src}.md" > "$OUT/${src}_body.md"
+  pandoc "$OUT/${src}_body.md" \
+    --from markdown+pipe_tables+backtick_code_blocks \
+    --to html5 --standalone \
+    --metadata-file="$OUT/${src}_meta.yaml" \
+    --toc --toc-depth=2 --css=lit.css \
+    -o "$OUT/${src}.html"
+  weasyprint "$OUT/${src}.html" "$OUT/${out_name}.pdf"
+  echo "wrote $OUT/${out_name}.pdf"
+done
