@@ -36,6 +36,9 @@ PRETTY = {
 }
 
 
+SEED_TAGS = ("ssl", "seed13", "seed29")
+
+
 def load_all(root: Path) -> dict:
     merged = {}
     for f in sorted(root.glob("results_*.json")):
@@ -43,6 +46,20 @@ def load_all(root: Path) -> dict:
     if not merged:
         raise SystemExit(f"no results_*.json found in {root}")
     return merged
+
+
+def split_runs(res: dict):
+    """Separate the three kinds of run.
+
+    They all land in results_*.json, but they answer different questions and
+    must not share a table. An ablation listed next to LOF reads as a competing
+    method, which it is not: it is the same method with a component removed.
+    """
+    ablations = {k: v for k, v in res.items() if k.startswith("abl_")}
+    seeds = {k: v for k, v in res.items() if k in SEED_TAGS}
+    main = {k: v for k, v in res.items()
+            if k not in ablations and k not in seeds or k == "ssl"}
+    return main, seeds, ablations
 
 
 def main_table(res: dict) -> pd.DataFrame:
@@ -130,7 +147,8 @@ def main() -> None:
     args.out.mkdir(parents=True, exist_ok=True)
 
     res = load_all(args.results)
-    df = main_table(res)
+    main, seeds, ablations = split_runs(res)
+    df = main_table(main)
     any_r = next(iter(res.values()))["detection"]
     ceilings = {b: any_r.get(f"f1_ceiling@{b}") for b in ("0.01", "0.05", "0.15")}
     print("\nAlert-budget ceilings (best possible F1 at that budget, "
@@ -146,16 +164,58 @@ def main() -> None:
     fig_comparison(df, args.out)
     fig_localization_breakdown(res, args.out)
 
-    ssl = res.get("ssl")
+    if seeds:
+        sh = np.array([seeds[k]["localization"]["hit@1"] for k in seeds])
+        sa = np.array([seeds[k]["detection"]["auprc"] for k in seeds])
+        sm = np.array([seeds[k]["localization"]["mrr"] for k in seeds])
+        print(f"\nSeed repeats ({len(seeds)} seeds), the noise floor for the "
+              f"ablations below")
+        print(f"  AUPRC {sa.mean():.3f} +/- {sa.std():.3f}   "
+              f"Hit@1 {sh.mean():.3f} +/- {sh.std():.3f}   "
+              f"MRR {sm.mean():.3f} +/- {sm.std():.3f}")
+
+    if ablations:
+        ref, sd = (sh.mean(), sh.std()) if seeds else (np.nan, np.nan)
+        rows = []
+        for k, v in sorted(ablations.items()):
+            d = v["localization"]["hit@1"] - ref
+            rows.append({
+                "ablation": k.replace("abl_", ""),
+                "AUPRC": v["detection"]["auprc"],
+                "Hit@1": v["localization"]["hit@1"],
+                "MRR": v["localization"]["mrr"],
+                "delta Hit@1": d,
+                "verdict": "within seed noise" if abs(d) <= 2 * sd
+                           else "OUTSIDE 2 sd",
+            })
+        adf = pd.DataFrame(rows).sort_values("delta Hit@1", ascending=False)
+        print("\nAblations (identical 40-epoch budget)\n")
+        print(adf.round(3).to_string(index=False))
+        adf.round(4).to_csv(args.out / "ablation_table.csv", index=False)
+        (args.out / "ablation_table.md").write_text(
+            adf.round(3).to_markdown(index=False))
+
+    ssl = main.get("ssl")
     if ssl:
         print(f"\ndetection pooling rule chosen on validation: "
               f"{ssl.get('detection_rule')}")
-        naive = ssl.get("localization_residual_only", {})
-        print(f"\nLocalization, ancestor-conditioned vs deviation-magnitude:")
-        print(f"  ancestor-conditioned  Hit@1={ssl['localization'].get('hit@1'):.3f}  "
-              f"MRR={ssl['localization'].get('mrr'):.3f}")
-        print(f"  deviation magnitude   Hit@1={naive.get('hit@1', float('nan')):.3f}  "
-              f"MRR={naive.get('mrr', float('nan')):.3f}")
+        # The headline finding: two independent routes to cross-task
+        # comparability, worth the same, and only slightly more together.
+        variants = [
+            ("deviation magnitude, raw", "localization_residual_only_raw"),
+            ("deviation magnitude, calibrated", "localization_residual_only_calibrated"),
+            ("ancestor-conditioned, raw", "localization_ancestor_raw"),
+            ("ancestor-conditioned, calibrated", "localization"),
+        ]
+        print("\nLocalization scoring rules, same trained model\n")
+        print(f"  {'variant':<38}{'Hit@1':>7}  {'95% CI':<18}{'MRR':>7}")
+        for label, key in variants:
+            v = ssl.get(key)
+            if not v:
+                continue
+            ci = v.get("hit@1_ci95")
+            ci_s = f"[{ci[0]:.3f}, {ci[1]:.3f}]" if ci else ""
+            print(f"  {label:<38}{v['hit@1']:>7.3f}  {ci_s:<18}{v['mrr']:>7.3f}")
         att = ssl.get("attribution", {})
         print(f"\nattribution accuracy: {att.get('attribution_accuracy', 0):.3f} "
               f"over {att.get('n_scored', 0)} incidents")

@@ -477,15 +477,19 @@ was tuned on test.
 
 ### 7.1 Main comparison
 
-| Method | AUPRC | Best F1 | F1 @15% | Hit@1 | Hit@3 | MRR |
+| Method | AUPRC [95% CI] | Best F1 | F1 @15% | Hit@1 [95% CI] | Hit@3 | MRR |
 |---|---|---|---|---|---|---|
-| LSTM autoencoder | 0.951 | 0.928 | 0.887 | **0.818** | **0.986** | **0.900** |
-| PCA residual | 0.942 | 0.928 | 0.876 | 0.801 | 0.955 | 0.880 |
-| **SSL transformer (ours)** | 0.953 | 0.935 | 0.890 | 0.797 | 0.973 | 0.883 |
-| Local Outlier Factor | **0.973** | **0.963** | **0.931** | 0.773 | 0.976 | 0.872 |
-| Dense autoencoder | 0.956 | 0.910 | 0.893 | 0.749 | 0.924 | 0.843 |
-| Rolling z-score | 0.502 | 0.519 | 0.399 | 0.570 | 0.942 | 0.748 |
-| Isolation Forest | 0.466 | 0.469 | 0.450 | 0.340 | 0.701 | 0.550 |
+| LSTM autoencoder | 0.951 [0.932, 0.968] | 0.928 | 0.887 | **0.818** [0.773, 0.859] | **0.986** | **0.900** |
+| PCA residual | 0.942 [0.920, 0.963] | 0.928 | 0.876 | 0.801 [0.756, 0.849] | 0.955 | 0.880 |
+| **SSL transformer (ours)** | 0.953 [0.934, 0.971] | 0.935 | 0.890 | 0.797 [0.749, 0.842] | 0.973 | 0.883 |
+| Local Outlier Factor | **0.973** [0.958, 0.987] | **0.963** | **0.931** | 0.773 [0.725, 0.821] | 0.976 | 0.872 |
+| Dense autoencoder | 0.956 [0.937, 0.973] | 0.910 | 0.893 | 0.749 [0.701, 0.797] | 0.924 | 0.843 |
+| Rolling z-score | 0.502 [0.455, 0.554] | 0.519 | 0.399 | 0.570 [0.515, 0.629] | 0.942 | 0.748 |
+| Isolation Forest | 0.466 [0.413, 0.527] | 0.469 | 0.450 | 0.340 [0.285, 0.395] | 0.701 | 0.550 |
+
+Intervals are 95% bootstrap. In the localization column every interval among
+the top four overlaps every other, which is the formal version of "these are tied".
+
 
 The self-supervised model does not win on either task. Local Outlier Factor has
 the best detection and the LSTM autoencoder the best localization. With 291
