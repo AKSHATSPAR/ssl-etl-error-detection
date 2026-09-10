@@ -386,8 +386,15 @@ disorganised.
 >
 > Let me show you it running.
 
-**Then open the demo.** Follow the walkthrough in
-`Presentation_and_Demo_Guide.pdf`, about two minutes.
+**Then open the demo.** Use the visual one, `pipeline_demo.html`, already open in
+a browser tab before you start. Follow the walkthrough in
+`Presentation_and_Demo_Guide.pdf`, about two minutes: pick a broken run, talk
+through the three questions, reveal the answer, then show a healthy run so they
+see it does not cry wolf.
+
+If you have time and they seem interested, click "Rows went missing", which the
+model gets wrong, and explain why. Volunteering the failure lands better than
+being caught by it.
 
 ---
 

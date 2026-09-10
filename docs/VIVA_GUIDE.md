@@ -8,6 +8,77 @@ questions without falling back on jargon you would then have to defend.
 
 # Part 1: Running the demo
 
+There are two demos. Use the visual one on the day, and keep the terminal one as
+a backup and for anyone who wants to see it running for real.
+
+## The visual demo (use this one)
+
+Double-click **`artifacts/web/pipeline_demo.html`**. It opens in any browser.
+
+It needs no server, no Python, no internet and no project folder. It is a single
+file with the results already inside it, which means it cannot fail because
+something did not start.
+
+**Copy it onto the presentation laptop and onto a USB stick.** That is the whole
+setup.
+
+### Driving it
+
+- Click any run in the left column to diagnose it.
+- Arrow keys move between runs, which is easier than clicking while talking.
+- The button at the bottom reveals what actually happened. **Leave it hidden at
+  first** and ask the room to guess which task caused it.
+
+### What to say, screen by screen
+
+Open on a broken run, for example "Units changed, e.g. rupees to paise".
+
+> "This is one hour of a pipeline that has been running all year. The model has
+> never seen this run before."
+
+Point at the bar at the top right.
+
+> "First question: is this run broken. The bar is how surprised the model is, and
+> the tick is the alert line, set so it fires about once in twenty runs. This one
+> is well past it."
+
+Point at the diagram.
+
+> "Second question, and this is the hard one. The amber tasks are the ones the
+> damage reached. Notice how many there are. If we just blamed whichever looked
+> worst, we would usually pick the wrong one. The dark box is where the model
+> says it started."
+
+Point at the two panels below.
+
+> "Third question: what kind of problem. It does not just say something is wrong,
+> it says which family of measurements moved and which single measurement gave it
+> away."
+
+Now reveal.
+
+> "And here is what was actually injected, so you can check it rather than take
+> my word for it."
+
+Then click **"Normal run"** near the bottom of the list.
+
+> "It also has to not cry wolf. Here is a healthy run. Score under the line, no
+> alert, nothing flagged."
+
+### The one to volunteer
+
+Click **"Rows went missing"**. The model gets this one wrong.
+
+> "This is the failure type I know it handles badly, and I can tell you exactly
+> why. A join's row count depends on how well the keys match between its two
+> inputs, and we never measure that. So the model does not have the information
+> it would need. The fix is an extra measurement, not a better model."
+
+Showing a failure you predicted and explained is far stronger than hoping nobody
+finds one.
+
+## The terminal demo (backup, and for anyone who wants proof it runs)
+
 ## Before you walk in
 
 Open a terminal, go to the project folder, and run this once to check everything
@@ -40,7 +111,8 @@ PYTHONPATH=src .venv/bin/python scripts/demo.py --n 2
 ```
 
 It picks real broken pipeline runs from data the model has never seen, diagnoses
-each one, and then shows one healthy run so the contrast is visible.
+each one, and then shows one healthy run so the contrast is visible. Same model
+and same numbers as the visual demo, just printed instead of drawn.
 
 ### What to say while it loads
 
@@ -135,8 +207,13 @@ and keep them in a folder.
 **No laptop, or no projector.** Have the figures printed or on a phone. Figure 2
 from the report, the one with the coloured band, carries the main idea by itself.
 
+**The browser will not open the file.** Drag it onto an open browser window
+instead of double-clicking, or use File then Open. Then fall back to the terminal
+demo.
+
 ## Have these ready to open
 
+- `pipeline_demo.html`, already open in a browser tab before you start
 - The report, at the results table
 - `artifacts/dataset_report/fig2_propagation.png`, the blast radius picture
 - `artifacts/results/fig7_attention.png`, the attention picture

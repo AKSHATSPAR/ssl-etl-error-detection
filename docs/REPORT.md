@@ -848,6 +848,17 @@ the label-free checkpoint criterion used throughout, since validation
 reconstruction loss turns out to be poorly aligned with the task the model is
 actually being asked to do.
 
+### Delivered alongside the report
+
+The repository carries a working demonstration as well as the results. A terminal
+script diagnoses held-out incidents and prints the ground truth beneath each
+answer so it can be checked rather than believed. A single self-contained HTML
+file does the same visually, showing the task graph, the tasks the damage
+reached, the task named as the cause, and the symptom breakdown, with the ground
+truth hidden behind a control so an audience can judge before seeing it. It has
+no server, no runtime dependency and no network access, so it is reproducible on
+any machine with a browser.
+
 ### Future work
 
 **Measure join-key overlap.** Section 9 identifies the exact missing feature
@@ -962,6 +973,11 @@ PYTHONPATH=src python -m etlguard.data.build_dataset --n-batches 8000 --out data
 
 # Seeds and ablations, about three hours
 PYTHONPATH=src python scripts/run_experiments.py --only all
+
+# The two demos
+PYTHONPATH=src python scripts/demo.py --n 2
+PYTHONPATH=src python scripts/export_demo_data.py
+PYTHONPATH=src python scripts/build_web_demo.py
 
 # Attribution, error analysis, tables and figures
 PYTHONPATH=src python scripts/attribution_study.py --ckpt runs/ssl/best.pt
