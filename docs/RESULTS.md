@@ -247,6 +247,17 @@ which uses no labels. The detection pooling rule is chosen on validation AUPRC,
 one categorical choice among five. That is not zero label use and is reported
 rather than hidden.
 
+**A unit bug that no result depended on, but one interpretation did.** Exported
+timestamps were 1000x too small because `DatetimeIndex.astype("int64")` changed
+meaning between pandas major versions. Nothing crashed and no metric moved: the
+profile tensor and every label are bit-identical across the two dataset versions,
+and no baseline uses the clock. What it did break was the calendar-feature
+ablation, which was measuring the removal of features that encoded nothing. The
+experiment was redone on corrected data and the conclusion held. It is recorded
+here because the failure mode is worth remembering: a derived quantity nobody
+inspects is a quantity nobody checks, and it was caught only when a demo script
+printed dates in 1970.
+
 **Single seed for the headline numbers.** Seed repeats and ablations are reported
 in Section 7. Until those land, no gap under about 0.05 Hit@1 should be treated
 as real.
@@ -268,6 +279,7 @@ the final epoch. Three seeds set the noise floor: **AUPRC 0.951 ± 0.001, Hit@1 
 | No DAG attention bias | 0.435 | 0.953 | 0.801 | 0.884 | -0.005 | within noise |
 | No calendar features | 0.433 | 0.953 | 0.790 | 0.879 | -0.015 | within noise |
 | Contrastive added | 0.486 | 0.953 | 0.787 | 0.880 | -0.018 | within noise |
+| Working calendar features (v2 data) | 0.433 | 0.953 | 0.787 | 0.878 | -0.018 | within noise |
 | Longer training (57 ep, budget lifted) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
 
 ### None of the architectural choices matter
@@ -280,9 +292,14 @@ Without the bias, attention still puts 42.2% of off-diagonal mass on true edges
 against 22.2% by chance (1.9x), compared with 46.4% and 2.1x with it. Telling the
 model the structure nudges it and changes nothing downstream.
 
-**Calendar features are redundant** because a 32-hour window already spans more
-than a full daily cycle, so the phase is inferable from the visible history.
-Removing them does not even hurt reconstruction (0.433 against 0.4328).
+**Calendar features are redundant, established on the second attempt.** The first
+version of this ablation was invalid: a unit bug made exported timestamps 1000x
+too small, so the timeline covered nine distinct hours rather than twenty-four
+and the calendar features encoded almost nothing. Removing features that carry no
+signal cannot test anything. Retrained on corrected timestamps with a real
+24-hour cycle, the answer is unchanged at Hit@1 0.787 against a seed mean of
+0.805 +/- 0.011. A 32-hour window already spans a full day, so the phase is
+inferable from the visible history and an explicit clock adds nothing.
 
 **The contrastive objective hurts reconstruction and helps nothing.** Validation
 loss rises from 0.438 to 0.486 and the contrastive term itself collapses to

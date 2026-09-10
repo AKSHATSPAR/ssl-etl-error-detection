@@ -652,6 +652,7 @@ noise floor.
 | No DAG attention bias | 0.435 | 0.953 | 0.801 | 0.884 | -0.005 | within noise |
 | No calendar features | 0.433 | 0.953 | 0.790 | 0.879 | -0.015 | within noise |
 | Contrastive objective added | 0.486 | 0.953 | 0.787 | 0.880 | -0.018 | within noise |
+| Working calendar features (v2 data) | 0.433 | 0.953 | 0.787 | 0.878 | -0.018 | within noise |
 | Longer training (57 epochs, budget lifted) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
 
 ### 8.1 None of the architectural choices matter
@@ -670,10 +671,18 @@ true pipeline edges against 22.2% expected by chance, a 1.9x lift, compared with
 it slightly and changes nothing downstream, because the structure is recoverable
 from the data.
 
-**Calendar features are redundant because the window already contains the cycle.**
-A 32-hour window spans more than a full day, so the model can infer the phase of
-the daily cycle from the history it can already see. Removing the clock does not
-even hurt reconstruction (0.433 against 0.4328).
+**Calendar features are redundant, and this took two attempts to establish.**
+The first version of this ablation was not a valid test. A unit bug made every
+exported timestamp 1000x too small, so the whole 8000-run timeline spanned nine
+distinct hours instead of twenty-four and the calendar features carried almost no
+signal. Removing features that encode nothing is guaranteed to change nothing.
+
+After fixing the timestamps and retraining with a genuine 24-hour cycle, the
+answer is the same: Hit@1 0.787 against a seed mean of 0.805 +/- 0.011, and
+validation reconstruction of 0.4332 against 0.4328. So the conclusion stands and
+now has a real experiment behind it. A 32-hour window spans more than a full day,
+so the model can already infer the phase of the daily cycle from the history it
+sees, and an explicit clock adds nothing.
 
 **The contrastive objective hurts reconstruction and does not help anything else.**
 Validation reconstruction loss rises from 0.438 to 0.486 while localization is
@@ -789,6 +798,17 @@ uses no labels, but Section 8.2 shows that criterion does not track localization
 and can actively work against it. The detection pooling rule is chosen on
 validation AUPRC, one categorical choice among five options, reported rather
 than hidden.
+
+**A unit bug that no result depended on, but one interpretation did.** Exported
+timestamps were 1000x too small because `DatetimeIndex.astype("int64")` changed
+meaning between pandas major versions. Nothing crashed and no metric moved: the
+profile tensor and every label are bit-identical across the two dataset versions,
+and no baseline uses the clock. What it did break was the calendar-feature
+ablation, which was measuring the removal of features that encoded nothing. The
+experiment was redone on corrected data and the conclusion held. It is recorded
+here because the failure mode is worth remembering: a derived quantity nobody
+inspects is a quantity nobody checks, and it was caught only when a demo script
+printed dates in 1970.
 
 **Single pipeline topology.** All results come from one nine-task graph.
 Generalisation to wider graphs, deeper graphs, or pipelines with cycles in their
