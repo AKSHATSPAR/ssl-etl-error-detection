@@ -256,6 +256,39 @@ future, because a random split over a time series leaks tomorrow into today.
 
 ---
 
+## Headline results
+
+Test split, 2000 runs, 291 with incidents. Full detail in
+[docs/RESULTS.md](docs/RESULTS.md).
+
+The self-supervised model does not beat every baseline, and the write-up says so.
+LOF has the best detection at 0.973 AUPRC against 0.953, and PCA residual has the
+best Hit@1 at 0.801 against 0.773. On a 38-dimensional profile with 4800 healthy
+training runs, simple density and subspace methods are strong, and five of the
+seven methods land within 0.03 AUPRC of each other.
+
+The finding that does hold up is about the scoring rule. On the same trained
+model, changing nothing else:
+
+| scoring rule | Hit@1 | MRR |
+|---|---|---|
+| Ancestor-conditioned (hide the node and its descendants) | **0.773** | **0.867** |
+| Self-masked only (hide just the node) | 0.632 | 0.787 |
+| Deviation magnitude | 0.588 | 0.762 |
+
+That 18.5 point gain is larger than anything separating the seven methods in the
+main table. The depth breakdown confirms it comes from the mechanism claimed:
+ancestor conditioning wins at every depth in the DAG, and at the sink task, which
+has no descendants to hide, all three rules give an identical 0.893.
+
+Attribution accuracy is 0.924, meaning the top symptom family matched the fault's
+expected family in 92% of incidents.
+
+Localization fails on the two row-count faults, `row_loss_truncation` at 0.29 and
+`duplicate_records` at 0.43. Row counts propagate through the DAG almost
+undiminished, so every task on the path shows the same anomaly and there is
+little asymmetry left to exploit. That is a real limitation, not a tuning issue.
+
 ## Status
 
 - [x] **Chunk 1.** Simulator, fault taxonomy, profiler, dataset builder,
