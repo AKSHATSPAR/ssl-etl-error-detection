@@ -413,7 +413,12 @@ def simulate(cfg: SimConfig, progress: bool = True,
         "y_type": y_type,
         "severity": severity,
         "split": split,
-        "timestamps": ts.astype("int64").to_numpy() // 10**9,
+        # .astype("int64") on a DatetimeIndex is nanoseconds on pandas 2 and
+        # microseconds on pandas 3, so dividing by a hard-coded 10**9 silently
+        # produced timestamps 1000x too small and calendar features that carried
+        # no information. Going through .view/int64 on an explicit unit avoids
+        # depending on which pandas is installed.
+        "timestamps": (ts.to_numpy(dtype="datetime64[s]").astype("int64")),
         "adjacency": pipe.adjacency(),
         "node_names": pipe.names,
         "feature_names": FEATURE_NAMES,

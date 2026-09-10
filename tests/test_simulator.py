@@ -196,3 +196,22 @@ def test_non_propagating_faults_are_labelled_local():
         assert measured[m].sum(axis=1).mean() < 2.0
         assert res["y_topo"][m].sum(axis=1).mean() > 2.0, \
             "the topological label should over-approximate here"
+
+
+def test_timestamps_are_real_epoch_seconds(clean_run):
+    """Consecutive hourly runs must be 3600 seconds apart, in the right decade.
+
+    pandas changed what .astype("int64") means on a DatetimeIndex between major
+    versions (nanoseconds to microseconds), and a hard-coded divisor silently
+    produced timestamps 1000x too small. Nothing crashed: the calendar features
+    were simply computed from a clock that barely moved, so hour-of-day carried
+    no information and the feature quietly did nothing.
+    """
+    ts = clean_run["timestamps"]
+    gaps = np.diff(ts)
+    assert np.all(gaps == 3600), f"expected hourly spacing, saw {set(gaps.tolist())}"
+
+    as_dt = pd.to_datetime(ts, unit="s")
+    assert as_dt[0].year == 2024, f"timeline starts in {as_dt[0].year}, not 2024"
+    # A full day must be covered, which is the whole point of the feature.
+    assert len(set(as_dt.hour)) >= min(24, len(ts))
