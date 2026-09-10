@@ -1,193 +1,257 @@
 # Results
 
-All numbers are on the **test split** (2000 runs, the last 25% of the timeline,
-291 of them carrying an incident). Nothing here was tuned on test. The model was
-trained for 40 epochs with the checkpoint chosen on validation reconstruction
-loss, which uses no labels.
+Test split: the last 25% of the timeline, 2000 runs, 291 of them carrying an
+incident. Nothing was tuned on test.
 
-Regenerate everything with:
+Reproduce with:
 
 ```bash
-PYTHONPATH=src python -m etlguard.eval.run_eval --ckpt runs/ssl/best.pt
+PYTHONPATH=src python -m etlguard.eval.run_eval --ckpt runs/ssl/best.pt --save-scores
 PYTHONPATH=src python scripts/results_report.py
+PYTHONPATH=src python scripts/attribution_study.py --ckpt runs/ssl/best.pt
+PYTHONPATH=src python scripts/error_analysis.py --ckpt runs/ssl/best.pt
 ```
+
+> **A correction to an earlier draft.** Chunk 2 reported that ancestor
+> conditioning was worth 18.5 Hit@1 points over deviation magnitude. That
+> comparison was against an *uncalibrated* deviation score. Once both scores are
+> put on the same footing the advantage is 2.4 points, and the confidence
+> intervals overlap. Section 3 explains what happened and why the corrected
+> version is the more interesting result.
 
 ---
 
 ## 1. Main comparison
 
-| method | AUROC | AUPRC | best F1 | F1 @1% | F1 @5% | F1 @15% | Hit@1 | Hit@3 | MRR |
-|---|---|---|---|---|---|---|---|---|---|
-| LOF | 0.983 | **0.973** | **0.963** | 0.129 | 0.512 | **0.931** | 0.797 | 0.952 | 0.880 |
-| Dense autoencoder | 0.975 | 0.956 | 0.910 | 0.129 | 0.512 | 0.893 | 0.725 | 0.911 | 0.828 |
-| **SSL transformer (ours)** | 0.974 | 0.953 | 0.935 | 0.129 | 0.512 | 0.890 | 0.773 | **0.955** | 0.867 |
-| LSTM autoencoder | 0.974 | 0.951 | 0.928 | 0.129 | 0.512 | 0.887 | 0.643 | 0.969 | 0.803 |
-| PCA residual | 0.968 | 0.942 | 0.928 | 0.129 | 0.512 | 0.876 | **0.801** | 0.966 | **0.886** |
-| Rolling z-score | 0.730 | 0.502 | 0.519 | 0.129 | 0.512 | 0.399 | 0.663 | 0.959 | 0.805 |
-| Isolation Forest | 0.779 | 0.466 | 0.469 | 0.116 | 0.327 | 0.450 | 0.323 | 0.687 | 0.543 |
+Every method's per-node scores are percentile-calibrated against its own
+unlabelled training runs, so the comparison is like for like.
 
-The 1% and 5% budget columns are at their analytic ceiling (0.129 and 0.512) for
-every method with perfect precision, so they separate nothing. That is a property
-of the base rate, not of the detectors: you cannot recall more incidents than you
-are permitted to raise alerts. The 15% column, roughly one alert per incident, is
-the one that discriminates.
+| method | AUPRC | best F1 | F1 @15% | Hit@1 | Hit@3 | MRR |
+|---|---|---|---|---|---|---|
+| LSTM autoencoder | 0.951 | 0.928 | 0.887 | **0.818** | **0.986** | **0.900** |
+| PCA residual | 0.942 | 0.928 | 0.876 | 0.801 | 0.955 | 0.880 |
+| **SSL transformer (ours)** | 0.953 | 0.935 | 0.890 | 0.797 | 0.973 | 0.883 |
+| LOF | **0.973** | **0.963** | **0.931** | 0.773 | 0.976 | 0.872 |
+| Dense autoencoder | 0.956 | 0.910 | 0.893 | 0.749 | 0.924 | 0.843 |
+| Rolling z-score | 0.502 | 0.519 | 0.399 | 0.570 | 0.942 | 0.748 |
+| Isolation Forest | 0.466 | 0.469 | 0.450 | 0.340 | 0.701 | 0.550 |
 
-### What this says, plainly
+**The self-supervised model does not win, on either task.** LOF has the best
+detection and the LSTM autoencoder has the best localization. With 291 incidents
+the standard error on a Hit@1 near 0.8 is 0.023, so the top four localizers
+(0.818, 0.801, 0.797, 0.773) sit inside roughly two standard errors of one
+another and should be read as tied rather than ranked.
 
-**The self-supervised model does not win outright, and the write-up should say
-so.** LOF has the best detection (AUPRC 0.973 against 0.953) and PCA residual has
-the best Hit@1 (0.801 against 0.773). Both are simple, both are fast, and on this
-benchmark both are strong.
+That is worth stating plainly rather than tuning away. Each task profile is only
+38 dimensions and the healthy manifold is densely covered by 4800 training runs,
+which is close to the ideal setting for a density or subspace method. There was
+not much headroom for a deep model to claim: five of seven methods sit between
+0.94 and 0.97 AUPRC.
 
-That result is worth understanding rather than tuning away. Each task's profile
-is only 38 dimensions and the healthy manifold is densely sampled by 4800
-training runs, which is close to the ideal setting for a density or subspace
-method. The deep models buy little on detection because there is not much left
-to buy: five of the seven methods sit between 0.94 and 0.97 AUPRC.
-
-The honest headline is therefore not "our model is best". It is that **the
-ancestor-conditioned scoring rule is what improves localization**, and that is
-shown below on the same trained model, holding everything else fixed.
-
-Two baselines deserve comment. Rolling z-score, the stand-in for what a
-Great Expectations or Deequ style tool does today, collapses on detection
-(AUPRC 0.502) because the benign distractors defeat it: seasonality, growth and
-campaigns move features as hard as several fault types do. Isolation Forest is
-the weakest overall, which is a known weakness of axis-parallel splits on
-correlated features.
+Two baselines do fail, and both failures are informative. Rolling z-score, the
+stand-in for a Great Expectations or Deequ style rule tool, collapses on
+detection at 0.502 AUPRC because the benign distractors defeat it. Seasonality,
+growth and campaigns move features as hard as several real fault types do, which
+is exactly why those distractors are in the benchmark. Isolation Forest is
+weakest overall, a known consequence of axis-parallel splits on correlated
+features.
 
 ---
 
-## 2. The main finding: how you score matters more than what you score with
+## 2. What actually mattered: making scores comparable across tasks
 
-Same trained model, same test split, only the scoring rule changed.
+Ranking nine raw errors asks the wrong question. It asks which task has the
+largest error, when the question is which task is furthest from *its own*
+normal. Tasks are not equally predictable, so their raw errors are not
+comparable, and whichever task happens to be hardest to predict wins the argmax
+by default.
 
-| scoring rule | Hit@1 | Hit@3 | MRR |
+There are two ways to fix that, and the interesting result is that they are worth
+the same.
+
+| SSL localizer variant | Hit@1 [95% CI] | MRR [95% CI] |
+|---|---|---|
+| Deviation magnitude, raw | 0.588 [0.533, 0.646] | 0.762 [0.729, 0.796] |
+| Deviation magnitude, **statistically** calibrated | 0.773 [0.725, 0.821] | 0.872 [0.843, 0.899] |
+| Ancestor-conditioned, raw (**structural**) | 0.773 [0.725, 0.821] | 0.867 [0.838, 0.896] |
+| Ancestor-conditioned **and** calibrated | 0.797 [0.749, 0.842] | 0.883 [0.855, 0.910] |
+
+Rows two and three are identical to three decimal places, with the same interval.
+
+**Structural conditioning** achieves comparability by predicting each task from
+its parents, so whatever its inputs already explain is subtracted away.
+**Statistical calibration** achieves it by converting each task's error into a
+percentile against its own healthy history. Different mechanisms, the same
+effect, the same number. Doing both adds 2.4 points, which the intervals cannot
+separate from noise.
+
+The honest summary is that the gain attributed to the ancestor-conditioned score
+in chunk 2 is real but is not unique to it. It is a gain from cross-task
+comparability, and a much simpler statistical trick buys the same thing.
+
+### Calibration is not free, and not always positive
+
+| method | uncalibrated Hit@1 | calibrated | delta |
 |---|---|---|---|
-| Ancestor-conditioned (hide the node **and its descendants**) | **0.773** | 0.955 | **0.867** |
-| Self-masked only (hide just the node) | 0.632 | 0.945 | 0.787 |
-| Deviation magnitude (history-only error) | 0.588 | 0.931 | 0.762 |
+| LSTM autoencoder | 0.643 | 0.818 | **+0.175** |
+| Dense autoencoder | 0.725 | 0.749 | +0.024 |
+| SSL (ancestor) | 0.773 | 0.797 | +0.024 |
+| PCA residual | 0.801 | 0.801 | 0.000 |
+| LOF | 0.797 | 0.773 | -0.024 |
+| Rolling z-score | 0.663 | 0.570 | **-0.093** |
 
-Ancestor conditioning adds **18.5 Hit@1 points** over ranking by deviation
-magnitude on the very same model. That is a larger gap than anything separating
-the seven methods in the main table, which is the point: the scoring rule is
-doing more work here than the choice of architecture.
+It transforms the LSTM autoencoder and it damages the rolling z-score. The
+pattern follows how far apart a method's per-node error scales already are: the
+LSTM reconstructs all nine tasks through one shared hidden state, so its
+per-task error scales differ wildly and calibration has a great deal to correct.
+LOF and PCA already produce roughly comparable per-node scores, so there is
+nothing left to gain and the rank transform only discards magnitude information.
 
-The middle row exists because it was the first implementation, and it was wrong.
-Hiding only the node under test does not measure surprise given inputs, because
-structural attention is bidirectional and the node's own descendants stay
-visible. During an incident those descendants are corrupted too, so they hand the
-corrupted value back to the model. Hiding the descendants as well leaves only
-ancestors and history, which is the intended quantity.
+The practical lesson is that per-node calibration should be checked, not
+assumed, and it is cheap to check because it needs no labels.
 
-### The depth breakdown confirms the mechanism
+### Percentile rank, not z-score
 
-If the story above is right, the leak should hurt most where a node has the most
-descendants, meaning upstream, and should vanish entirely at the sink.
+An earlier attempt calibrated with medians and IQRs and made things worse
+(ancestor-conditioned Hit@1 fell from 0.773 to 0.605). The error distributions
+are heavy-tailed and an IQR is a poor summary of them. Percentile rank is
+distribution-free and does the same job without assuming a shape the data does
+not have.
 
-| origin depth | ancestor-conditioned | self-masked only | deviation magnitude | n |
+---
+
+## 3. The depth breakdown, and a bug it caught
+
+The first implementation of the ancestor score hid only the node under test.
+That is not surprise given inputs, because structural attention is bidirectional
+and the node's own *descendants* remain visible. During an incident those
+descendants are corrupted too, so they hand the corrupted value straight back.
+
+The prediction was that the leak should be worst where a node has the most
+descendants, meaning upstream, and should vanish at the sink. It does.
+
+| origin depth | ancestor (descendants hidden) | self-masked only (leaky) | deviation magnitude | n |
 |---|---|---|---|---|
 | 0 (source tasks) | 0.598 | 0.546 | 0.505 | 97 |
-| 1 | **0.806** | 0.583 | 0.556 | 72 |
-| 2 | **0.821** | 0.643 | 0.643 | 28 |
+| 1 | 0.806 | 0.583 | 0.556 | 72 |
+| 2 | 0.821 | 0.643 | 0.643 | 28 |
 | 3 | 0.889 | 0.889 | 0.667 | 18 |
-| 4 | **0.938** | 0.625 | 0.562 | 48 |
-| 5 (sink, `load_warehouse`) | 0.893 | 0.893 | 0.893 | 28 |
+| 4 | 0.938 | 0.625 | 0.562 | 48 |
+| 5 (sink) | 0.893 | 0.893 | 0.893 | 28 |
 
 At depth 5 all three rules agree exactly, because `load_warehouse` has no
-descendants and the three masks are then identical. That is not a tuned result,
-it falls out of the construction, and it is the strongest evidence that the gain
-comes from the mechanism claimed and not from somewhere else.
+descendants and the three masks are then the same tensor. That is not a tuned
+result, it falls out of the construction, and it is the cleanest available
+evidence that the mechanism is the one claimed.
 
-Depth 0 is the hardest row and the gain there is smallest, which also follows:
-source tasks have no ancestors either, so conditioning has nothing extra to
-offer and the score falls back on history alone.
+Depth 0 is the hardest row and gains least, which also follows: source tasks have
+no ancestors either, so conditioning has nothing extra to offer.
 
 ---
 
-## 3. Where localization fails
+## 4. Where localization fails, and why
 
-| fault type | Hit@1 | n |
+Nine of fifteen fault types localize at or near 1.00. Two fail badly.
+
+| fault type | Hit@1 | mean nodes affected |
 |---|---|---|
-| type_mismatch, schema_column_add, resource_degradation, late_arrival, join_fanout | 1.00 | 5 to 21 each |
-| unit_change | 0.95 | 20 |
-| pk_null | 0.94 | 17 |
-| schema_column_drop | 0.89 | 44 |
-| category_corruption | 0.86 | 21 |
-| timezone_shift | 0.76 | 21 |
-| null_spike | 0.72 | 18 |
-| fk_break | 0.67 | 6 |
-| value_corruption | 0.64 | 11 |
-| duplicate_records | 0.43 | 35 |
-| row_loss_truncation | **0.29** | 28 |
+| `row_loss_truncation` | 0.29 | 3.77 |
+| `duplicate_records` | 0.43 | 2.84 |
+| (nine types at 0.94 to 1.00) | | 1.00 to 1.76 |
 
-The two failures are both row-count faults, and they fail for the same reason.
-A change in row count propagates through every downstream task almost
-undiminished: if `clean_orders` loses 40% of its rows, then the join, the
-aggregate and the warehouse load all lose about 40% too. Every node on the path
-shows an almost identical `row_ratio` anomaly, so there is very little asymmetry
-for the ancestor-conditioned score to exploit. The measured propagation reach
-backs this up, at 3.77 nodes for truncation and 2.84 for duplication, against
-1.00 for the faults that localize perfectly.
+The correlation between how far a fault spreads and how well it localizes is
+**-0.63**. Faults that stay local are easy and faults that travel are hard, which
+is the expected shape of the problem.
 
-This is a genuine limitation rather than a tuning problem, and it points at the
-most promising next step: row counts are conserved through the DAG in a way most
-other features are not, so a task-specific conservation prior (expected row ratio
-per task, learned from healthy history) should recover exactly the asymmetry that
-is missing.
+The error pattern is sharper than the aggregate suggests. Of the mislocalized
+`duplicate_records` incidents, **100%** blamed a task further downstream, and
+nearly all blamed the same one, `join_payments`. For `row_loss_truncation` it is
+85%.
 
-Localization also degrades gracefully with severity, from 0.66 Hit@1 in the
-lowest quartile to 0.88 in the highest, which is what should happen. Low-severity
-incidents are genuinely close to invisible, and a method that scored them as well
-as severe ones would be suspicious.
+The mechanism is specific to joins. A join's output row count depends on key
+overlap between its inputs, and key overlap is not in the feature set at all, so
+no model can predict a join's row count from its parents' profiles. When a
+duplication arrives from upstream, the fan-out it causes at the join is genuinely
+unpredictable from the parent profiles, so the join looks like the origin.
+
+This is a benchmark and feature-design limitation rather than a modelling one,
+and it names its own fix: add a join-key overlap statistic to the profile. The
+information the model needs is currently not measured.
+
+Localization degrades gracefully with severity, from 0.66 Hit@1 in the lowest
+quartile to 0.88 in the highest, which is what should happen. A method that
+scored faint incidents as well as severe ones would be suspicious.
 
 ---
 
-## 4. Attribution
+## 5. Explainability
 
-Attribution accuracy is **0.924** over 291 incidents, meaning that in 92% of
-cases the highest-scoring symptom family at the identified origin matched the
-family that fault type is mechanistically expected to move.
+Attribution is scored, not just plotted, because the simulator knows which
+symptom family each fault type should move.
 
-This number is only meaningful because the simulator defines the ground truth. In
-the published literature attribution is almost always displayed rather than
-scored, precisely because there is nothing to check it against.
-
----
-
-## 5. Detection pooling rule
-
-Chosen on validation AUPRC, before touching test:
-
-| rule | val AUPRC |
+| method | accuracy over 291 incidents |
 |---|---|
-| `max_anc` (selected) | 0.946 |
-| `max_ctx` | 0.944 |
-| `max_hist` | 0.936 |
-| `top2_hist` | 0.911 |
-| `mean_hist` | 0.885 |
+| Integrated Gradients | **0.935** |
+| Reconstruction error | 0.924 |
 
-The spread is small, so detection is not sensitive to this choice. Localization,
-as Section 2 shows, very much is.
+Both are high and the gap is small. Integrated Gradients is clearly better on
+one fault type, `timezone_shift` (0.95 against 0.76), which fits its extra
+capability: it can credit evidence in other tasks and earlier runs, while
+reconstruction error can only look at the flagged task at the flagged timestep. A
+timestamp shift shows up as a relationship across the window rather than as one
+large residual.
+
+Nine of fifteen fault types reach 1.00 under both methods. The hardest are
+`value_corruption` (0.73 and 0.82) and `row_loss_truncation` (0.75 for both).
+
+Given the gap is small and Integrated Gradients costs 32 extra forward and
+backward passes per explanation, reconstruction error is the sensible default and
+Integrated Gradients is worth reaching for on the fault families where it
+demonstrably helps.
+
+### The attention learned the pipeline
+
+Averaged over incidents, structural attention places **46.4%** of its
+off-diagonal mass on true DAG edges, against **22.2%** expected by chance, a
+**2.1x** lift. The brightest cells are the genuine parent-child pairs:
+`extract_customers` with `clean_customers`, `extract_orders` with `clean_orders`,
+`aggregate_daily` with `load_warehouse`.
+
+Nothing forces this. The DAG bias is a learned scalar per relation type per head,
+not a mask, so the model was free to ignore the graph and did not.
 
 ---
 
 ## 6. Threats to validity
 
-**The benchmark is synthetic.** Fault severities, frequencies and the mix of
-fault types are all design choices. The relative ordering of methods is more
-trustworthy than any absolute number here.
+**The benchmark is synthetic.** Fault severities, frequencies and the type mix
+are design choices. Relative ordering is more trustworthy than any absolute
+number here.
 
-**Detection may be too easy.** Five of seven methods land within 0.03 AUPRC of
-each other, which suggests the benchmark does not discriminate well on detection
-even though it clearly does on localization. Harder settings worth running are
-lower severities, more concurrent incidents, and shorter windows.
+**Detection may be too easy to discriminate.** Five of seven methods land within
+0.03 AUPRC. The benchmark separates methods on localization but barely on
+detection. Lower severities, more concurrent incidents and shorter windows would
+all make it harder.
 
-**One seed.** Every number is from a single training run. Repeats with different
-seeds and a variance estimate are needed before any of these gaps is called real,
-and the smaller ones (0.953 against 0.956, say) almost certainly are not.
+**Alert-budget columns saturate.** F1 at a 1% budget is capped at 0.129 and at 5%
+at 0.512 for any detector with perfect precision, because you cannot recall more
+incidents than you may raise alerts. Only the 15% column, roughly one alert per
+incident, discriminates.
 
-**Model selection.** Checkpoints were chosen on validation reconstruction loss,
-which uses no labels, but the detection pooling rule was chosen on validation
-AUPRC. That is one categorical choice out of five options and it is reported
-rather than hidden, but it is not zero label use.
+**Model selection.** Checkpoints are chosen on validation reconstruction loss,
+which uses no labels. The detection pooling rule is chosen on validation AUPRC,
+one categorical choice among five. That is not zero label use and is reported
+rather than hidden.
+
+**Single seed for the headline numbers.** Seed repeats and ablations are reported
+in Section 7. Until those land, no gap under about 0.05 Hit@1 should be treated
+as real.
+
+---
+
+## 7. Ablations and seed repeats
+
+Pending. Two additional seeds and four ablations (no DAG attention bias, no
+calendar features, clean training set, contrastive objective enabled) are running
+with an identical 40-epoch budget, so that "this component helps" cannot be
+confused with "this run trained longer".

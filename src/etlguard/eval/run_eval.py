@@ -31,7 +31,8 @@ from ..simulator.profiler import FEATURE_GROUPS
 from ..utils.common import fmt, pick_device, save_json, set_seed
 from .metrics import (attribution_accuracy, detection_delay, detection_metrics,
                       localization_by_group, localization_metrics)
-from .scoring import ScoreBundle, score_loader
+from .scoring import (NodeCalibration, ScoreBundle,
+                      calibrate_node_scores, score_loader)
 
 
 def _labels_for(data: ETLData, ends: np.ndarray) -> Dict[str, np.ndarray]:
@@ -83,6 +84,9 @@ def main(argv=None) -> Dict:
     ap.add_argument("--tag", type=str, default="ssl")
     ap.add_argument("--device", type=str, default="auto")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--save-scores", action="store_true",
+                    help="cache the raw score arrays so scoring rules can be "
+                         "compared offline without a 5-minute re-score")
     args = ap.parse_args(argv)
 
     set_seed(args.seed)
@@ -101,9 +105,13 @@ def main(argv=None) -> Dict:
 
     loaders = make_loaders(data, window=args.window, batch_size=args.batch_size)
     t0 = time.time()
+    # Calibration runs on unlabelled training windows, so it adds no label use.
+    cal_b = score_loader(model, loaders["calibration"], device, data.n_nodes,
+                         data.adjacency)
+    calib = NodeCalibration.fit(cal_b)
     val_b = score_loader(model, loaders["val"], device, data.n_nodes, data.adjacency)
     test_b = score_loader(model, loaders["test"], device, data.n_nodes, data.adjacency)
-    print(f"scored val+test in {time.time() - t0:.1f}s")
+    print(f"scored calibration+val+test in {time.time() - t0:.1f}s")
 
     # Pooling rule chosen on validation, never on test.
     from sklearn.metrics import average_precision_score
@@ -114,19 +122,25 @@ def main(argv=None) -> Dict:
     print(f"detection rule selected on val AUPRC: {best_rule}  "
           f"({ {k: round(v, 3) for k, v in rule_scores.items()} })")
 
+    loc_score = test_b.calibrated("e_anc", calib)
     ssl_res = evaluate_scores(test_b.y_type, test_b.y_root,
                               test_b.detection_score(best_rule),
-                              test_b.e_anc, test_b.severity,
+                              loc_score, test_b.severity,
                               data.fault_labels, args.budget)
     ssl_res["detection_rule"] = best_rule
     ssl_res["val_rule_auprc"] = rule_scores
 
-    # Three localizers on the same trained model, so the comparison isolates the
-    # scoring rule rather than confounding it with a different model.
-    ssl_res["localization_residual_only"] = localization_metrics(
-        test_b.y_root, test_b.e_hist)
-    ssl_res["localization_self_masked_only"] = localization_metrics(
-        test_b.y_root, test_b.e_ctx)
+    # Every localizer below uses the same trained model, so the comparison
+    # isolates the scoring rule rather than confounding it with a different model.
+    variants = {
+        "residual_only_raw": test_b.e_hist,
+        "self_masked_only_raw": test_b.e_ctx,
+        "ancestor_raw": test_b.e_anc,
+        "residual_only_calibrated": test_b.calibrated("e_hist", calib),
+        "self_masked_only_calibrated": test_b.calibrated("e_ctx", calib),
+    }
+    for name, sc in variants.items():
+        ssl_res[f"localization_{name}"] = localization_metrics(test_b.y_root, sc)
 
     # Localization split by how far upstream the origin sits. If hiding only the
     # node itself lets its descendants leak the answer, that shows up here as a
@@ -144,13 +158,29 @@ def main(argv=None) -> Dict:
         if m.sum() < 3:
             continue
         ssl_res["localization_by_depth"][f"depth_{d}"] = {
-            "ancestor_conditioned": localization_metrics(
+            "ancestor_calibrated": localization_metrics(
+                test_b.y_root[m], loc_score[m]),
+            "ancestor_uncalibrated": localization_metrics(
                 test_b.y_root[m], test_b.e_anc[m]),
             "self_masked_only": localization_metrics(
                 test_b.y_root[m], test_b.e_ctx[m]),
             "deviation_magnitude": localization_metrics(
                 test_b.y_root[m], test_b.e_hist[m]),
         }
+    ssl_res["node_baseline_e_anc"] = {
+        n: float(np.median(calib.reference["e_anc"][:, i]))
+        for i, n in enumerate(data.node_names)}
+
+    if args.save_scores:
+        np.savez_compressed(
+            args.out / f"scores_{args.tag}.npz",
+            e_hist=test_b.e_hist, e_ctx=test_b.e_ctx, e_anc=test_b.e_anc,
+            feat_err=test_b.feat_err, y_root=test_b.y_root, y_anom=test_b.y_anom,
+            y_type=test_b.y_type, severity=test_b.severity, t=test_b.t,
+            cal_e_hist=cal_b.e_hist, cal_e_ctx=cal_b.e_ctx, cal_e_anc=cal_b.e_anc,
+            val_e_hist=val_b.e_hist, val_e_ctx=val_b.e_ctx, val_e_anc=val_b.e_anc,
+            val_y_type=val_b.y_type, val_y_root=val_b.y_root)
+        print(f"cached score arrays to {args.out}/scores_{args.tag}.npz")
 
     gidx = {f: np.array([data.feature_names.index(x) for x in feats])
             for f, feats in FEATURE_GROUPS.items()}
@@ -175,17 +205,28 @@ def main(argv=None) -> Dict:
             t1 = time.time()
             b.fit(f_tr)
             run_s, node_s = b.score(f_te)
+            # Same percentile calibration the model gets, fitted the same way on
+            # unlabelled training scores. It is worth more than the choice of
+            # detector, so applying it to one side only would be the result.
+            _, node_tr = b.score(f_tr[::4])
+            node_cal = calibrate_node_scores(node_tr, node_s)
             results[b.name] = evaluate_scores(
-                lab["y_type"], lab["y_root"], run_s, node_s, lab["severity"],
+                lab["y_type"], lab["y_root"], run_s, node_cal, lab["severity"],
                 data.fault_labels, args.budget)
+            results[b.name]["localization_uncalibrated"] = localization_metrics(
+                lab["y_root"], node_s)
             _checkpoint(results, args.out, args.tag)
             print(f"  {b.name:<18} fitted+scored in {time.time() - t1:.1f}s")
 
         ae = DenseAutoEncoder(device=args.baseline_device).fit(f_tr)
         run_s, node_s = ae.score(f_te)
+        _, node_tr = ae.score(f_tr[::4])
         results[ae.name] = evaluate_scores(
-            lab["y_type"], lab["y_root"], run_s, node_s, lab["severity"],
+            lab["y_type"], lab["y_root"], run_s,
+            calibrate_node_scores(node_tr, node_s), lab["severity"],
             data.fault_labels, args.budget)
+        results[ae.name]["localization_uncalibrated"] = localization_metrics(
+            lab["y_root"], node_s)
         _checkpoint(results, args.out, args.tag)
         print(f"  {ae.name:<18} done")
 
@@ -206,9 +247,13 @@ def main(argv=None) -> Dict:
                                device=args.baseline_device)
         lstm.fit_sequences(flat(lstm_ends))
         run_s, node_s = lstm.score_sequences(flat(te_ends), data.n_nodes)
+        _, node_tr = lstm.score_sequences(flat(lstm_ends), data.n_nodes)
         results[lstm.name] = evaluate_scores(
-            lab["y_type"], lab["y_root"], run_s, node_s, lab["severity"],
+            lab["y_type"], lab["y_root"], run_s,
+            calibrate_node_scores(node_tr, node_s), lab["severity"],
             data.fault_labels, args.budget)
+        results[lstm.name]["localization_uncalibrated"] = localization_metrics(
+            lab["y_root"], node_s)
         _checkpoint(results, args.out, args.tag)
         print(f"  {lstm.name:<18} done in {time.time() - t1:.1f}s "
               f"({len(lstm_ends)} train sequences)")

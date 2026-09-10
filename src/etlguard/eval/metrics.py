@@ -9,7 +9,7 @@ labelled, because the literature quotes it and reviewers look for it.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from sklearn.metrics import average_precision_score, roc_auc_score
@@ -101,6 +101,18 @@ def detection_metrics(y: np.ndarray, s: np.ndarray, budget: float = 0.01,
         "auprc": float(average_precision_score(y, s)),
         "base_rate": float(y.mean()),
     }
+    # Bootstrap over runs, so the interval reflects sampling of the test period
+    # rather than of the model.
+    rng = np.random.default_rng(0)
+    boots = []
+    for _ in range(400):
+        idx = rng.integers(0, len(y), len(y))
+        if y[idx].sum() in (0, len(idx)):
+            continue
+        boots.append(average_precision_score(y[idx], s[idx]))
+    if boots:
+        lo, hi = np.percentile(boots, [2.5, 97.5])
+        out["auprc_ci95"] = [round(float(lo), 4), round(float(hi), 4)]
     out.update(best_f1(y, s))
     out.update(f1_at_budget(y, s, budget))
     # A 1% budget cannot recall more than 1%/base_rate of incidents, so on its
@@ -143,6 +155,24 @@ def detection_delay(y_type: np.ndarray, s: np.ndarray, threshold: float
 # Root-cause localization
 # --------------------------------------------------------------------------- #
 
+def bootstrap_ci(values: np.ndarray, n_boot: int = 2000, alpha: float = 0.05,
+                 seed: int = 0) -> Tuple[float, float]:
+    """Percentile bootstrap interval for the mean of a per-incident indicator.
+
+    With 291 incidents the standard error on a Hit@1 near 0.8 is about 0.023, so
+    differences of two or three points between methods are noise. Reporting the
+    interval is the difference between "our method wins" and "these are tied",
+    and on this benchmark it is usually the second.
+    """
+    if values.size == 0:
+        return (float("nan"), float("nan"))
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, values.size, size=(n_boot, values.size))
+    means = values[idx].mean(axis=1)
+    lo, hi = np.percentile(means, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return (float(lo), float(hi))
+
+
 def localization_metrics(y_root: np.ndarray, r: np.ndarray,
                          ks: Sequence[int] = (1, 3)) -> Dict[str, float]:
     """Hit@k and MRR over the candidate nodes, on incident runs only.
@@ -160,12 +190,16 @@ def localization_metrics(y_root: np.ndarray, r: np.ndarray,
         topk = order[:, :k]
         hit = np.take_along_axis(yr, topk, axis=1).max(axis=1)
         out[f"hit@{k}"] = float(hit.mean())
+        lo, hi = bootstrap_ci(hit.astype(float))
+        out[f"hit@{k}_ci95"] = [round(lo, 4), round(hi, 4)]
     # MRR against the best-ranked true origin (incidents may have >1).
     ranks = []
     for i in range(len(yr)):
         pos = np.where(yr[i][order[i]] > 0)[0]
         ranks.append(1.0 / (pos[0] + 1) if pos.size else 0.0)
     out["mrr"] = float(np.mean(ranks))
+    lo, hi = bootstrap_ci(np.asarray(ranks, dtype=float))
+    out["mrr_ci95"] = [round(lo, 4), round(hi, 4)]
     return out
 
 

@@ -258,36 +258,46 @@ future, because a random split over a time series leaks tomorrow into today.
 
 ## Headline results
 
-Test split, 2000 runs, 291 with incidents. Full detail in
-[docs/RESULTS.md](docs/RESULTS.md).
+Test split, 2000 runs, 291 with incidents. Full detail and confidence intervals
+in [docs/RESULTS.md](docs/RESULTS.md).
 
-The self-supervised model does not beat every baseline, and the write-up says so.
-LOF has the best detection at 0.973 AUPRC against 0.953, and PCA residual has the
-best Hit@1 at 0.801 against 0.773. On a 38-dimensional profile with 4800 healthy
-training runs, simple density and subspace methods are strong, and five of the
-seven methods land within 0.03 AUPRC of each other.
+**The self-supervised model does not win, on either task, and the write-up says
+so.** LOF has the best detection (0.973 AUPRC against 0.953) and an LSTM
+autoencoder has the best localization (0.818 Hit@1 against 0.797). With 291
+incidents the standard error on a Hit@1 near 0.8 is 0.023, so the top four
+localizers are tied rather than ranked.
 
-The finding that does hold up is about the scoring rule. On the same trained
-model, changing nothing else:
+The finding that survived scrutiny is about scoring rather than architecture.
+Ranking nine raw errors asks which task has the largest error, when the question
+is which task is furthest from its own normal. There are two ways to fix that,
+and they turn out to be worth exactly the same:
 
-| scoring rule | Hit@1 | MRR |
-|---|---|---|
-| Ancestor-conditioned (hide the node and its descendants) | **0.773** | **0.867** |
-| Self-masked only (hide just the node) | 0.632 | 0.787 |
-| Deviation magnitude | 0.588 | 0.762 |
+| SSL localizer variant | Hit@1 [95% CI] |
+|---|---|
+| Deviation magnitude, raw | 0.588 [0.533, 0.646] |
+| Deviation magnitude, **statistically** calibrated | 0.773 [0.725, 0.821] |
+| Ancestor-conditioned, raw (**structural**) | 0.773 [0.725, 0.821] |
+| Both | 0.797 [0.749, 0.842] |
 
-That 18.5 point gain is larger than anything separating the seven methods in the
-main table. The depth breakdown confirms it comes from the mechanism claimed:
-ancestor conditioning wins at every depth in the DAG, and at the sink task, which
-has no descendants to hide, all three rules give an identical 0.893.
+Rows two and three are identical to three decimals. Conditioning on a task's
+parents and comparing a task to its own history are different mechanisms that
+achieve the same comparability, and combining them adds little.
 
-Attribution accuracy is 0.924, meaning the top symptom family matched the fault's
-expected family in 92% of incidents.
+Chunk 2 of this project claimed ancestor conditioning was worth 18.5 points. That
+compared it against an *uncalibrated* baseline. Corrected, it is worth 2.4 points
+and the intervals overlap.
 
-Localization fails on the two row-count faults, `row_loss_truncation` at 0.29 and
-`duplicate_records` at 0.43. Row counts propagate through the DAG almost
-undiminished, so every task on the path shows the same anomaly and there is
-little asymmetry left to exploit. That is a real limitation, not a tuning issue.
+Other results:
+
+- Attribution accuracy is 0.935 with Integrated Gradients and 0.924 from plain
+  reconstruction error, both scored against the fault's known symptom family.
+- Structural attention puts 46.4% of its off-diagonal mass on true DAG edges
+  against 22.2% by chance, a 2.1x lift, with nothing forcing it to.
+- Localization fails on two row-count faults, and the reason is specific: a
+  join's output row count depends on key overlap between its inputs, which is not
+  in the feature set, so no model can predict it from the parents. 100% of
+  mislocalized `duplicate_records` incidents blamed a task further downstream.
+  The fix is a feature, not a model.
 
 ## Status
 
