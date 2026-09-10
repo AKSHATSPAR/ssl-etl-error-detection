@@ -1,0 +1,1784 @@
+{
+ "nodes": [
+  {
+   "id": 0,
+   "key": "extract_customers",
+   "label": "Extract customers"
+  },
+  {
+   "id": 1,
+   "key": "extract_orders",
+   "label": "Extract orders"
+  },
+  {
+   "id": 2,
+   "key": "extract_payments",
+   "label": "Extract payments"
+  },
+  {
+   "id": 3,
+   "key": "clean_customers",
+   "label": "Clean customers"
+  },
+  {
+   "id": 4,
+   "key": "clean_orders",
+   "label": "Clean orders"
+  },
+  {
+   "id": 5,
+   "key": "join_orders_customers",
+   "label": "Join orders + customers"
+  },
+  {
+   "id": 6,
+   "key": "join_payments",
+   "label": "Join payments"
+  },
+  {
+   "id": 7,
+   "key": "aggregate_daily",
+   "label": "Aggregate daily"
+  },
+  {
+   "id": 8,
+   "key": "load_warehouse",
+   "label": "Load warehouse"
+  }
+ ],
+ "edges": [
+  [
+   0,
+   3
+  ],
+  [
+   1,
+   4
+  ],
+  [
+   2,
+   6
+  ],
+  [
+   3,
+   5
+  ],
+  [
+   4,
+   5
+  ],
+  [
+   5,
+   6
+  ],
+  [
+   6,
+   7
+  ],
+  [
+   7,
+   8
+  ]
+ ],
+ "threshold": 3.1,
+ "runs": [
+  {
+   "index": 7823,
+   "clock": "2024-11-21 23:00:00",
+   "score": 12.508,
+   "alert": true,
+   "nodeScores": [
+    0.663,
+    0.9992,
+    0.9003,
+    0.9858,
+    0.9975,
+    0.9883,
+    0.995,
+    0.9983,
+    0.9983
+   ],
+   "ranking": [
+    1,
+    7,
+    8,
+    4,
+    6,
+    5,
+    3,
+    2,
+    0
+   ],
+   "predictedRoot": 1,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.236
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.002
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.49
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.083
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 115.277
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.071
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.004
+    }
+   ],
+   "topFeature": "cat_cardinality_mean",
+   "truth": {
+    "broken": true,
+    "fault": "category_corruption",
+    "faultPlain": "Category labels were mangled",
+    "faultDescription": "Encoding/enum drift produces unseen category values downstream systems reject.",
+    "rootNode": 1,
+    "severity": 0.83,
+    "affected": [
+     1,
+     4,
+     5
+    ],
+    "expectedFamilies": [
+     "categorical_distribution"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7262,
+   "clock": "2024-10-29 14:00:00",
+   "score": 11.626,
+   "alert": true,
+   "nodeScores": [
+    0.6354,
+    0.9983,
+    0.9623,
+    0.9581,
+    0.9975,
+    0.9958,
+    0.9975,
+    0.9271,
+    0.9656
+   ],
+   "ranking": [
+    1,
+    4,
+    6,
+    5,
+    8,
+    2,
+    3,
+    7,
+    0
+   ],
+   "predictedRoot": 1,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 19.259
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 57.673
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.155
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.094
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.601
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.18
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.004
+    }
+   ],
+   "topFeature": "dup_pk_rate",
+   "truth": {
+    "broken": true,
+    "fault": "duplicate_records",
+    "faultPlain": "Rows were duplicated",
+    "faultDescription": "A retried or re-delivered batch duplicates rows, inflating every aggregate.",
+    "rootNode": 1,
+    "severity": 0.8,
+    "affected": [
+     1,
+     4,
+     5,
+     6
+    ],
+    "expectedFamilies": [
+     "completeness",
+     "operational"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7863,
+   "clock": "2024-11-23 15:00:00",
+   "score": 10.45,
+   "alert": true,
+   "nodeScores": [
+    0.4912,
+    0.9958,
+    0.311,
+    0.9673,
+    0.9941,
+    0.9975,
+    0.9941,
+    0.9925,
+    0.995
+   ],
+   "ranking": [
+    5,
+    1,
+    8,
+    4,
+    6,
+    7,
+    3,
+    0,
+    2
+   ],
+   "predictedRoot": 5,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.75
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 38.73
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 2.48
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 48.181
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 47.254
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.747
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 142.665
+    }
+   ],
+   "topFeature": "orphan_fk_rate",
+   "truth": {
+    "broken": true,
+    "fault": "fk_break",
+    "faultPlain": "Keys stopped matching",
+    "faultDescription": "Key formatting drifts upstream, so joins orphan rows or drop them entirely.",
+    "rootNode": 1,
+    "severity": 0.9,
+    "affected": [
+     1,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "integrity"
+    ]
+   },
+   "correctNode": false,
+   "correctFamily": true
+  },
+  {
+   "index": 6978,
+   "clock": "2024-10-17 18:00:00",
+   "score": 12.35,
+   "alert": true,
+   "nodeScores": [
+    0.0226,
+    0.2364,
+    0.1048,
+    0.6748,
+    0.0109,
+    0.1073,
+    0.9992,
+    0.9983,
+    0.9958
+   ],
+   "ranking": [
+    6,
+    7,
+    8,
+    3,
+    1,
+    5,
+    2,
+    0,
+    4
+   ],
+   "predictedRoot": 6,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 24.604
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 58.774
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.122
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.86
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.027
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.242
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.002
+    }
+   ],
+   "topFeature": "dup_pk_rate",
+   "truth": {
+    "broken": true,
+    "fault": "join_fanout",
+    "faultPlain": "A join exploded into extra rows",
+    "faultDescription": "Duplicate dimension keys turn a 1:1 join into 1:N and explode the fact table.",
+    "rootNode": 6,
+    "severity": 0.62,
+    "affected": [
+     6,
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "completeness",
+     "metric_distribution",
+     "operational"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7423,
+   "clock": "2024-11-05 07:00:00",
+   "score": 3.627,
+   "alert": true,
+   "nodeScores": [
+    0.995,
+    0.0553,
+    0.7158,
+    0.9086,
+    0.9447,
+    0.0134,
+    0.6731,
+    0.4526,
+    0.8206
+   ],
+   "ranking": [
+    0,
+    4,
+    3,
+    8,
+    2,
+    6,
+    7,
+    1,
+    5
+   ],
+   "predictedRoot": 0,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 16.537
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.001
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.111
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.573
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.036
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.265
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.026
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.0
+    }
+   ],
+   "topFeature": "log_queue_delay_sec",
+   "truth": {
+    "broken": true,
+    "fault": "late_arrival",
+    "faultPlain": "Data arrived late and stale",
+    "faultDescription": "The source lags: the batch carries stale events and the task queues behind SLA.",
+    "rootNode": 0,
+    "severity": 0.92,
+    "affected": [
+     0
+    ],
+    "expectedFamilies": [
+     "operational",
+     "temporal"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7109,
+   "clock": "2024-10-23 05:00:00",
+   "score": 11.332,
+   "alert": true,
+   "nodeScores": [
+    0.1735,
+    0.5641,
+    0.062,
+    0.4744,
+    0.5616,
+    0.9983,
+    0.9941,
+    0.8969,
+    0.9883
+   ],
+   "ranking": [
+    5,
+    6,
+    8,
+    7,
+    1,
+    4,
+    3,
+    0,
+    2
+   ],
+   "predictedRoot": 5,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.118
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 56.239
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 1.223
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 47.7
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.861
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.465
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.0
+    }
+   ],
+   "topFeature": "null_rate_mean",
+   "truth": {
+    "broken": true,
+    "fault": "null_spike",
+    "faultPlain": "Fields went empty",
+    "faultDescription": "A source system starts emitting nulls for one or more fields.",
+    "rootNode": 5,
+    "severity": 0.76,
+    "affected": [
+     5,
+     6,
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "completeness"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7027,
+   "clock": "2024-10-19 19:00:00",
+   "score": 10.464,
+   "alert": true,
+   "nodeScores": [
+    0.7938,
+    0.4107,
+    0.9028,
+    0.9422,
+    0.9983,
+    0.9975,
+    0.995,
+    0.9908,
+    0.9589
+   ],
+   "ranking": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    3,
+    2,
+    0,
+    1
+   ],
+   "predictedRoot": 4,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.244
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 78.58
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.289
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.101
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.188
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.061
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.002
+    }
+   ],
+   "topFeature": "pk_null_rate",
+   "truth": {
+    "broken": true,
+    "fault": "pk_null",
+    "faultPlain": "Record IDs went missing",
+    "faultDescription": "Primary keys arrive null, breaking dedup and idempotent upserts.",
+    "rootNode": 4,
+    "severity": 0.84,
+    "affected": [
+     4,
+     5,
+     6
+    ],
+    "expectedFamilies": [
+     "completeness"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 6469,
+   "clock": "2024-09-26 13:00:00",
+   "score": 9.398,
+   "alert": true,
+   "nodeScores": [
+    0.1065,
+    0.3571,
+    0.0612,
+    0.8759,
+    0.9975,
+    0.9061,
+    0.5247,
+    0.7301,
+    0.8164
+   ],
+   "ranking": [
+    4,
+    5,
+    3,
+    8,
+    7,
+    6,
+    1,
+    0,
+    2
+   ],
+   "predictedRoot": 4,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 47.17
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.002
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.403
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.082
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.439
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.278
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.0
+    }
+   ],
+   "topFeature": "retry_count",
+   "truth": {
+    "broken": true,
+    "fault": "resource_degradation",
+    "faultPlain": "The task ran slow, data was fine",
+    "faultDescription": "Cluster contention: the task retries and blows its SLA while its output stays valid.",
+    "rootNode": 4,
+    "severity": 0.98,
+    "affected": [
+     4
+    ],
+    "expectedFamilies": [
+     "operational"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 6219,
+   "clock": "2024-09-16 03:00:00",
+   "score": 19.552,
+   "alert": true,
+   "nodeScores": [
+    0.922,
+    0.4526,
+    0.9623,
+    0.2322,
+    0.9908,
+    0.9799,
+    0.601,
+    0.9992,
+    0.9983
+   ],
+   "ranking": [
+    7,
+    8,
+    4,
+    5,
+    2,
+    0,
+    6,
+    1,
+    3
+   ],
+   "predictedRoot": 7,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 20.368
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.001
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.003
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 14.349
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 1.109
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 111.24
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.001
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.002
+    }
+   ],
+   "topFeature": "cat_top1_share",
+   "truth": {
+    "broken": true,
+    "fault": "row_loss_truncation",
+    "faultPlain": "Rows went missing",
+    "faultDescription": "A partial upstream load truncates the batch; rows silently go missing.",
+    "rootNode": 7,
+    "severity": 0.87,
+    "affected": [
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "operational"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": false
+  },
+  {
+   "index": 7946,
+   "clock": "2024-11-27 02:00:00",
+   "score": 7.833,
+   "alert": true,
+   "nodeScores": [
+    0.9966,
+    0.4652,
+    0.1626,
+    0.9329,
+    0.0075,
+    0.2246,
+    0.2984,
+    0.5541,
+    0.9128
+   ],
+   "ranking": [
+    0,
+    3,
+    8,
+    7,
+    1,
+    6,
+    5,
+    2,
+    4
+   ],
+   "predictedRoot": 0,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.242
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 71.878
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.959
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.549
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.448
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.069
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.061
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.004
+    }
+   ],
+   "topFeature": "schema_change_flag",
+   "truth": {
+    "broken": true,
+    "fault": "schema_column_add",
+    "faultPlain": "An unexpected column appeared",
+    "faultDescription": "A producer adds unannounced columns; contracts and downstream selects drift.",
+    "rootNode": 0,
+    "severity": 0.55,
+    "affected": [
+     0
+    ],
+    "expectedFamilies": [
+     "schema"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7497,
+   "clock": "2024-11-08 09:00:00",
+   "score": 23.582,
+   "alert": true,
+   "nodeScores": [
+    0.9849,
+    0.9916,
+    1.2117,
+    0.9673,
+    0.9908,
+    0.9681,
+    1.0091,
+    0.9908,
+    0.9707
+   ],
+   "ranking": [
+    2,
+    6,
+    1,
+    4,
+    7,
+    0,
+    8,
+    5,
+    3
+   ],
+   "predictedRoot": 2,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.614
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 107.905
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.002
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.672
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 10.383
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 109.071
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.145
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.006
+    }
+   ],
+   "topFeature": "cat_top1_share",
+   "truth": {
+    "broken": true,
+    "fault": "schema_column_drop",
+    "faultPlain": "A column disappeared",
+    "faultDescription": "An upstream schema migration silently removes a column.",
+    "rootNode": 2,
+    "severity": 0.92,
+    "affected": [
+     2,
+     6
+    ],
+    "expectedFamilies": [
+     "schema"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": false
+  },
+  {
+   "index": 6287,
+   "clock": "2024-09-18 23:00:00",
+   "score": 10.557,
+   "alert": true,
+   "nodeScores": [
+    0.6966,
+    0.746,
+    0.9883,
+    0.4619,
+    0.4904,
+    0.7142,
+    0.9975,
+    0.5256,
+    0.7611
+   ],
+   "ranking": [
+    6,
+    2,
+    8,
+    1,
+    5,
+    0,
+    7,
+    4,
+    3
+   ],
+   "predictedRoot": 6,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.327
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.468
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 2.427
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.753
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.179
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 89.931
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.0
+    }
+   ],
+   "topFeature": "log_ts_lag_max",
+   "truth": {
+    "broken": true,
+    "fault": "timezone_shift",
+    "faultPlain": "Timestamps shifted by hours",
+    "faultDescription": "A producer switches from UTC to local time; event times jump by hours.",
+    "rootNode": 6,
+    "severity": 0.9,
+    "affected": [
+     6
+    ],
+    "expectedFamilies": [
+     "temporal"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 6598,
+   "clock": "2024-10-01 22:00:00",
+   "score": 13.085,
+   "alert": true,
+   "nodeScores": [
+    0.6094,
+    0.6412,
+    0.3277,
+    0.9422,
+    1.0266,
+    0.9883,
+    0.9908,
+    0.8927,
+    0.9681
+   ],
+   "ranking": [
+    4,
+    6,
+    5,
+    8,
+    3,
+    7,
+    1,
+    0,
+    2
+   ],
+   "predictedRoot": 4,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.379
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 72.138
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 39.856
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 1.431
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.073
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.377
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.5
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.001
+    }
+   ],
+   "topFeature": "type_mismatch_rate",
+   "truth": {
+    "broken": true,
+    "fault": "type_mismatch",
+    "faultPlain": "Numbers arrived as text",
+    "faultDescription": "A numeric column arrives as text; a fraction of casts fail and become nulls.",
+    "rootNode": 4,
+    "severity": 0.88,
+    "affected": [
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "completeness",
+     "schema"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7813,
+   "clock": "2024-11-21 13:00:00",
+   "score": 5.062,
+   "alert": true,
+   "nodeScores": [
+    0.2246,
+    0.0922,
+    0.9715,
+    0.7921,
+    0.9975,
+    0.9606,
+    0.969,
+    0.8843,
+    0.6203
+   ],
+   "ranking": [
+    4,
+    2,
+    6,
+    5,
+    7,
+    3,
+    8,
+    0,
+    1
+   ],
+   "predictedRoot": 4,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.354
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.003
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 23.391
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.359
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.15
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.185
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.004
+    }
+   ],
+   "topFeature": "metric_mean",
+   "truth": {
+    "broken": true,
+    "fault": "unit_change",
+    "faultPlain": "Units changed, e.g. rupees to paise",
+    "faultDescription": "A currency or unit convention changes upstream (e.g. rupees -> paise).",
+    "rootNode": 4,
+    "severity": 0.75,
+    "affected": [
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "metric_distribution"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7307,
+   "clock": "2024-10-31 11:00:00",
+   "score": 16.168,
+   "alert": true,
+   "nodeScores": [
+    0.6614,
+    0.2112,
+    0.2339,
+    0.86,
+    0.1702,
+    0.1534,
+    1.2203,
+    0.9983,
+    0.9966
+   ],
+   "ranking": [
+    6,
+    7,
+    8,
+    3,
+    0,
+    2,
+    1,
+    4,
+    5
+   ],
+   "predictedRoot": 6,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 2.904
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.544
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 71.039
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 1.267
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.016
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.09
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.001
+    }
+   ],
+   "topFeature": "metric_std",
+   "truth": {
+    "broken": true,
+    "fault": "value_corruption",
+    "faultPlain": "Values were corrupted",
+    "faultDescription": "Sensor/ingest corruption injects extreme or sentinel values into a measure.",
+    "rootNode": 6,
+    "severity": 0.67,
+    "affected": [
+     6,
+     7,
+     8
+    ],
+    "expectedFamilies": [
+     "metric_distribution"
+    ]
+   },
+   "correctNode": true,
+   "correctFamily": true
+  },
+  {
+   "index": 7430,
+   "clock": "2024-11-05 14:00:00",
+   "score": 1.543,
+   "alert": false,
+   "nodeScores": [
+    0.3336,
+    0.6681,
+    0.2297,
+    0.7368,
+    0.9656,
+    0.3705,
+    0.7075,
+    0.922,
+    0.8709
+   ],
+   "ranking": [
+    4,
+    7,
+    8,
+    3,
+    6,
+    1,
+    5,
+    0,
+    2
+   ],
+   "predictedRoot": 4,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.802
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.001
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.001
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 7.497
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.079
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.161
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.22
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.003
+    }
+   ],
+   "topFeature": "metric_max",
+   "truth": {
+    "broken": false,
+    "fault": "none",
+    "faultPlain": "Healthy run",
+    "faultDescription": "Nothing was injected into this run.",
+    "rootNode": -1,
+    "severity": 0.0,
+    "affected": [],
+    "expectedFamilies": []
+   },
+   "correctNode": false,
+   "correctFamily": false
+  },
+  {
+   "index": 7872,
+   "clock": "2024-11-24 00:00:00",
+   "score": 0.71,
+   "alert": false,
+   "nodeScores": [
+    0.9237,
+    0.2733,
+    0.9078,
+    0.7955,
+    0.5323,
+    0.8927,
+    0.8726,
+    0.2783,
+    0.9396
+   ],
+   "ranking": [
+    8,
+    0,
+    2,
+    5,
+    6,
+    3,
+    4,
+    7,
+    1
+   ],
+   "predictedRoot": 8,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 1.102
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.003
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.508
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.707
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.27
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.001
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.002
+    }
+   ],
+   "topFeature": "log_queue_delay_sec",
+   "truth": {
+    "broken": false,
+    "fault": "none",
+    "faultPlain": "Healthy run",
+    "faultDescription": "Nothing was injected into this run.",
+    "rootNode": -1,
+    "severity": 0.0,
+    "affected": [],
+    "expectedFamilies": []
+   },
+   "correctNode": false,
+   "correctFamily": false
+  },
+  {
+   "index": 7747,
+   "clock": "2024-11-18 19:00:00",
+   "score": 0.323,
+   "alert": false,
+   "nodeScores": [
+    0.2959,
+    0.7762,
+    0.451,
+    0.8583,
+    0.7083,
+    0.6932,
+    0.4049,
+    0.1643,
+    0.6278
+   ],
+   "ranking": [
+    3,
+    1,
+    4,
+    5,
+    8,
+    2,
+    6,
+    0,
+    7
+   ],
+   "predictedRoot": 3,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 0.889
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.001
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.013
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 0.604
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.005
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.01
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 0.067
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.004
+    }
+   ],
+   "topFeature": "cpu_util",
+   "truth": {
+    "broken": false,
+    "fault": "none",
+    "faultPlain": "Healthy run",
+    "faultDescription": "Nothing was injected into this run.",
+    "rootNode": -1,
+    "severity": 0.0,
+    "affected": [],
+    "expectedFamilies": []
+   },
+   "correctNode": false,
+   "correctFamily": false
+  },
+  {
+   "index": 7025,
+   "clock": "2024-10-19 17:00:00",
+   "score": 2.416,
+   "alert": false,
+   "nodeScores": [
+    0.0738,
+    0.9581,
+    0.0545,
+    0.2381,
+    0.9581,
+    0.9757,
+    0.5071,
+    0.9547,
+    0.8826
+   ],
+   "ranking": [
+    5,
+    1,
+    4,
+    7,
+    8,
+    6,
+    3,
+    0,
+    2
+   ],
+   "predictedRoot": 5,
+   "families": [
+    {
+     "key": "operational",
+     "label": "How the task ran",
+     "value": 5.364
+    },
+    {
+     "key": "schema",
+     "label": "Shape of the table",
+     "value": 0.0
+    },
+    {
+     "key": "completeness",
+     "label": "Missing or duplicated data",
+     "value": 0.009
+    },
+    {
+     "key": "metric_distribution",
+     "label": "The main number looks wrong",
+     "value": 4.046
+    },
+    {
+     "key": "numeric_distribution",
+     "label": "Other numbers look wrong",
+     "value": 0.001
+    },
+    {
+     "key": "categorical_distribution",
+     "label": "Category values look wrong",
+     "value": 0.034
+    },
+    {
+     "key": "temporal",
+     "label": "Timing and freshness",
+     "value": 4.615
+    },
+    {
+     "key": "integrity",
+     "label": "Keys not matching up",
+     "value": 0.001
+    }
+   ],
+   "topFeature": "retry_count",
+   "truth": {
+    "broken": false,
+    "fault": "none",
+    "faultPlain": "Healthy run",
+    "faultDescription": "Nothing was injected into this run.",
+    "rootNode": -1,
+    "severity": 0.0,
+    "affected": [],
+    "expectedFamilies": []
+   },
+   "correctNode": false,
+   "correctFamily": false
+  }
+ ],
+ "stats": {
+  "hitAt1": 0.797,
+  "hitAt3": 0.973,
+  "auprc": 0.953,
+  "attribution": 0.935,
+  "totalRuns": 8000,
+  "incidents": 273
+ }
+}

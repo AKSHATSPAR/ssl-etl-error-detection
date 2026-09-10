@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline Diagnosis</title>
+<style>
+/* Everything is inlined and no font is fetched: this file has to open by
+   double-clicking on a machine with no internet, in a room, under pressure. */
+:root{
+  --ink:#16202b; --ink-2:#33455a; --muted:#5c6a79;
+  --paper:#f6f8fa; --surface:#fff; --line:#dde4ec; --line-2:#c6d1dc;
+  --alert:#e07b2f; --alert-ink:#8f4512; --alert-wash:#fdf1e6;
+  --heal:#3fb8a5; --heal-ink:#1d6b5f; --heal-wash:#eaf7f5;
+  --culprit:#c2410c;
+  --edge:1px solid var(--line);
+  --r:10px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font:15px/1.5 var(--sans); font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:#ffdcbf; color:var(--ink)}
+:focus-visible{outline:2px solid var(--alert); outline-offset:2px; border-radius:4px}
+.scroll::-webkit-scrollbar{width:10px}
+.scroll::-webkit-scrollbar-thumb{background:var(--line-2); border-radius:99px;
+  border:3px solid var(--surface)}
+.scroll::-webkit-scrollbar-track{background:transparent}
+
+header{
+  padding:20px 28px 18px; background:var(--surface);
+  border-bottom:1px solid var(--line);
+}
+h1{margin:0; font-size:19px; letter-spacing:-.012em; font-weight:640}
+header p{margin:5px 0 0; color:var(--muted); font-size:13.5px; max-width:80ch}
+
+main{display:grid; grid-template-columns:288px minmax(0,1fr); min-height:calc(100vh - 74px)}
+
+/* ---- run picker ---- */
+aside{
+  background:var(--surface); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; max-height:calc(100vh - 74px);
+}
+.aside-head{padding:16px 18px 10px}
+.aside-head h2{margin:0; font-size:11px; letter-spacing:.10em; text-transform:uppercase;
+  color:var(--muted); font-weight:660}
+.aside-head span{display:block; margin-top:4px; font-size:12.5px; color:var(--muted)}
+.runs{overflow-y:auto; padding:4px 10px 16px; flex:1}
+.run{
+  width:100%; text-align:left; display:flex; align-items:center; gap:10px;
+  padding:9px 11px; margin:2px 0; border:1px solid transparent; border-radius:8px;
+  background:none; font:inherit; color:var(--ink-2); cursor:pointer;
+  transition:background .13s ease, color .13s ease;
+}
+.run:hover{background:var(--paper)}
+.run[aria-current="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
+.run[aria-current="true"] .run-sub{color:#9fb0c1}
+.pip{width:8px; height:8px; border-radius:99px; flex:0 0 8px; background:var(--heal)}
+.run.bad .pip{background:var(--alert)}
+.run-txt{min-width:0}
+.run-name{font-size:13.5px; font-weight:520; line-height:1.3}
+.run-sub{font-size:11.5px; color:var(--muted); margin-top:1px}
+
+/* ---- stage ---- */
+.stage{padding:22px 28px 40px; min-width:0}
+.verdict{
+  display:flex; align-items:center; gap:16px; padding:16px 20px;
+  background:var(--surface); border:var(--edge); border-radius:var(--r);
+}
+.verdict.alert{background:var(--alert-wash); border-color:#f0c9a3}
+.badge{
+  display:inline-flex; align-items:center; gap:8px; padding:7px 13px;
+  border-radius:99px; font-size:13px; font-weight:650; letter-spacing:.01em;
+  background:var(--heal-wash); color:var(--heal-ink);
+}
+.verdict.alert .badge{background:var(--alert); color:#fff}
+.badge svg{width:15px; height:15px}
+.verdict-txt{flex:1; min-width:0}
+.verdict-txt strong{display:block; font-size:15px; font-weight:600}
+.verdict-txt span{font-size:13px; color:var(--muted)}
+.meter{width:210px; flex:0 0 210px}
+.meter-wrap{position:relative}
+.meter-bar{height:7px; background:#e6ecf2; border-radius:99px; overflow:hidden}
+.meter-fill{height:100%; width:100%; background:var(--heal); border-radius:99px;
+  transform-origin:left center; transform:scaleX(0);
+  transition:transform .5s cubic-bezier(.16,1,.3,1), background .3s}
+.verdict.alert .meter-fill{background:var(--alert)}
+.meter-mark{position:absolute; top:-3px; height:13px; width:2px;
+  background:var(--ink); opacity:.5; border-radius:2px}
+.meter-lab{display:flex; justify-content:space-between; margin-top:6px;
+  font-size:11.5px; color:var(--muted); font-family:var(--mono)}
+
+section{margin-top:22px}
+.sec-h{display:flex; align-items:baseline; gap:10px; margin:0 0 12px}
+.sec-h h3{margin:0; font-size:13px; font-weight:640; letter-spacing:-.005em}
+.sec-h .num{
+  width:19px; height:19px; border-radius:99px; background:var(--ink); color:#fff;
+  font-size:11px; font-weight:660; display:grid; place-items:center; flex:0 0 19px;
+  position:relative; top:2px;
+}
+.sec-h p{margin:0; font-size:12.5px; color:var(--muted)}
+
+.panel{background:var(--surface); border:var(--edge); border-radius:var(--r)}
+
+/* ---- pipeline diagram ---- */
+.diagram{padding:14px 12px 8px}
+svg.dag{width:100%; height:auto; display:block}
+.edge{fill:none; stroke:var(--line-2); stroke-width:1.6}
+.edge.flow{stroke:var(--alert); stroke-width:2.4; stroke-dasharray:5 4;
+  animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-18}}
+.node rect{fill:#fff; stroke:var(--line-2); stroke-width:1.4; rx:8;
+  transition:fill .35s ease, stroke .35s ease}
+.node text{font:12px/1 var(--sans); fill:var(--ink-2); transition:fill .35s ease}
+.node.hit rect{fill:var(--alert-wash); stroke:var(--alert)}
+.node.hit text{fill:var(--alert-ink)}
+.node.root rect{fill:var(--culprit); stroke:var(--culprit)}
+.node.root text{fill:#fff; font-weight:620}
+.node .tag{font-size:9.5px; letter-spacing:.07em; text-transform:uppercase;
+  font-weight:700; fill:#fff}
+.legend{display:flex; gap:18px; padding:2px 10px 12px; font-size:12px;
+  color:var(--muted)}
+.legend i{width:10px; height:10px; border-radius:3px; display:inline-block;
+  margin-right:6px; vertical-align:-1px; border:1px solid var(--line-2)}
+
+/* ---- two column results ---- */
+.cols{display:grid; grid-template-columns:1fr 1fr; gap:20px}
+.pad{padding:16px 18px}
+.rank{display:flex; align-items:center; gap:11px; padding:7px 0}
+.rank + .rank{border-top:1px solid #eef2f6}
+.rank-n{font-family:var(--mono); font-size:11.5px; color:var(--muted); width:15px}
+.rank-name{font-size:13.5px; width:150px; flex:0 0 150px}
+.rank-bar{flex:1; height:8px; background:#eef2f6; border-radius:99px;
+  overflow:hidden; display:block; position:relative;
+  background-image:linear-gradient(90deg,transparent calc(50% - 1px),
+    var(--line-2) calc(50% - 1px), var(--line-2) calc(50% + 1px),
+    transparent calc(50% + 1px))}
+.rank-fill{display:block; height:100%; width:100%; background:#9fb1c2;
+  border-radius:99px; transform-origin:left center; transform:scaleX(0);
+  transition:transform .55s cubic-bezier(.16,1,.3,1)}
+.rank.top .rank-fill{background:var(--culprit)}
+.rank.top .rank-name{font-weight:620}
+.rank-val{font-family:var(--mono); font-size:11.5px; color:var(--muted); width:42px;
+  text-align:right}
+
+.col-note{margin:0 0 10px; font-size:12px; color:var(--muted); line-height:1.4}
+.diag{margin-top:14px; padding:13px 15px; background:var(--paper);
+  border-radius:8px; font-size:13.5px; line-height:1.5}
+.diag b{font-weight:640}
+
+/* ---- reveal ---- */
+.reveal{margin-top:22px}
+.reveal-btn{
+  display:inline-flex; align-items:center; gap:9px; padding:11px 18px;
+  border:1px solid var(--ink); background:var(--ink); color:#fff; border-radius:8px;
+  font:inherit; font-size:13.5px; font-weight:560; cursor:pointer;
+  transition:background .14s ease;
+}
+.reveal-btn:hover{background:#22313f}
+.reveal-btn svg{width:17px; height:17px; flex:0 0 17px}
+.truth{
+  display:none; padding:18px 20px; border-radius:var(--r);
+  background:var(--surface); border:var(--edge);
+}
+.truth.show{display:block; animation:rise .38s cubic-bezier(.16,1,.3,1) both}
+@keyframes rise{from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none}}
+.truth-row{display:flex; gap:26px; flex-wrap:wrap}
+.truth-item{min-width:150px}
+.truth-item dt{font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); font-weight:640; margin:0 0 3px}
+.truth-item dd{margin:0; font-size:14px}
+.marks{display:flex; gap:10px; margin-top:15px; padding-top:14px;
+  border-top:1px solid var(--line); flex-wrap:wrap}
+.mark{display:inline-flex; align-items:center; gap:7px; padding:6px 12px;
+  border-radius:99px; font-size:12.5px; font-weight:580;
+  background:var(--heal-wash); color:var(--heal-ink)}
+.mark.no{background:var(--alert-wash); color:var(--alert-ink)}
+.mark svg{width:14px; height:14px}
+
+footer{padding:18px 28px 30px; color:var(--muted); font-size:12.5px;
+  border-top:1px solid var(--line); margin-top:30px; background:var(--surface)}
+footer b{color:var(--ink-2); font-weight:600}
+
+@media (max-width:1080px){
+  main{grid-template-columns:1fr}
+  aside{max-height:none; border-right:0; border-bottom:1px solid var(--line)}
+  .runs{max-height:210px}
+  .cols{grid-template-columns:1fr}
+  .verdict{flex-wrap:wrap}
+  .meter{flex:1 1 100%; width:auto}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important; transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Pipeline diagnosis</h1>
+  <p>Every hour a nine-task pipeline runs. When it breaks, most of the tasks look
+     broken. Pick a run and the model says which one actually caused it.</p>
+</header>
+
+<main>
+  <aside>
+    <div class="aside-head">
+      <h2>Pipeline runs</h2>
+      <span id="asideSub"></span>
+    </div>
+    <div class="runs scroll" id="runList" role="listbox" aria-label="Pipeline runs"></div>
+  </aside>
+
+  <div class="stage">
+    <div class="verdict" id="verdict">
+      <span class="badge" id="badge"></span>
+      <div class="verdict-txt">
+        <strong id="verdictTitle"></strong>
+        <span id="verdictSub"></span>
+      </div>
+      <div class="meter">
+        <div class="meter-wrap">
+          <div class="meter-bar"><div class="meter-fill" id="meterFill"></div></div>
+          <div class="meter-mark" id="meterMark"></div>
+        </div>
+        <div class="meter-lab"><span>0</span><span id="meterMax"></span></div>
+      </div>
+    </div>
+
+    <section>
+      <div class="sec-h"><span class="num">1</span>
+        <h3>Where the damage reached</h3>
+        <p>Amber tasks moved. The dark one is where the model says it started.</p>
+      </div>
+      <div class="panel diagram">
+        <svg class="dag" id="dag" viewBox="0 0 1160 330"
+             role="img" aria-labelledby="dagTitle"><title id="dagTitle">Pipeline
+             diagram</title></svg>
+        <div class="legend">
+          <span><i style="background:#fff"></i>Unaffected</span>
+          <span><i style="background:var(--alert-wash);border-color:var(--alert)"></i>Affected</span>
+          <span><i style="background:var(--culprit);border-color:var(--culprit)"></i>Named as the cause</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="cols">
+      <section>
+        <div class="sec-h"><span class="num">2</span><h3>Which task caused it</h3></div>
+        <div class="panel pad">
+          <p class="col-note">How far past its own normal each task is. The tick
+             on each bar is 1.00, the edge of everything seen in training.</p>
+          <div id="ranking"></div>
+        </div>
+      </section>
+      <section>
+        <div class="sec-h"><span class="num">3</span><h3>What kind of problem</h3></div>
+        <div class="panel pad">
+          <p class="col-note">Which family of measurements moved at that task.</p>
+          <div id="families"></div>
+          <div class="diag" id="diagnosis"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="reveal">
+      <button class="reveal-btn" id="revealBtn" aria-expanded="false"
+              aria-controls="truth">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/></svg>
+        <span id="revealLabel">Show what actually happened</span>
+      </button>
+      <div class="truth" id="truth" style="margin-top:14px"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Trained on unlabelled pipeline history, then tested on runs it had never seen.
+  Across the full test set it names the right task <b>79.7%</b> of the time, and
+  has it in its top three <b>97.3%</b> of the time.
+</footer>
+
+<script>
+const DATA = {"nodes":[{"id":0,"key":"extract_customers","label":"Extract customers"},{"id":1,"key":"extract_orders","label":"Extract orders"},{"id":2,"key":"extract_payments","label":"Extract payments"},{"id":3,"key":"clean_customers","label":"Clean customers"},{"id":4,"key":"clean_orders","label":"Clean orders"},{"id":5,"key":"join_orders_customers","label":"Join orders + customers"},{"id":6,"key":"join_payments","label":"Join payments"},{"id":7,"key":"aggregate_daily","label":"Aggregate daily"},{"id":8,"key":"load_warehouse","label":"Load warehouse"}],"edges":[[0,3],[1,4],[2,6],[3,5],[4,5],[5,6],[6,7],[7,8]],"threshold":3.1,"runs":[{"index":7823,"clock":"2024-11-21 23:00:00","score":12.508,"alert":true,"nodeScores":[0.663,0.9992,0.9003,0.9858,0.9975,0.9883,0.995,0.9983,0.9983],"ranking":[1,7,8,4,6,5,3,2,0],"predictedRoot":1,"families":[{"key":"operational","label":"How the task ran","value":0.236},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.002},{"key":"metric_distribution","label":"The main number looks wrong","value":0.49},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.083},{"key":"categorical_distribution","label":"Category values look wrong","value":115.277},{"key":"temporal","label":"Timing and freshness","value":0.071},{"key":"integrity","label":"Keys not matching up","value":0.004}],"topFeature":"cat_cardinality_mean","truth":{"broken":true,"fault":"category_corruption","faultPlain":"Category labels were mangled","faultDescription":"Encoding/enum drift produces unseen category values downstream systems reject.","rootNode":1,"severity":0.83,"affected":[1,4,5],"expectedFamilies":["categorical_distribution"]},"correctNode":true,"correctFamily":true},{"index":7262,"clock":"2024-10-29 14:00:00","score":11.626,"alert":true,"nodeScores":[0.6354,0.9983,0.9623,0.9581,0.9975,0.9958,0.9975,0.9271,0.9656],"ranking":[1,4,6,5,8,2,3,7,0],"predictedRoot":1,"families":[{"key":"operational","label":"How the task ran","value":19.259},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":57.673},{"key":"metric_distribution","label":"The main number looks wrong","value":0.155},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.094},{"key":"categorical_distribution","label":"Category values look wrong","value":0.601},{"key":"temporal","label":"Timing and freshness","value":0.18},{"key":"integrity","label":"Keys not matching up","value":0.004}],"topFeature":"dup_pk_rate","truth":{"broken":true,"fault":"duplicate_records","faultPlain":"Rows were duplicated","faultDescription":"A retried or re-delivered batch duplicates rows, inflating every aggregate.","rootNode":1,"severity":0.8,"affected":[1,4,5,6],"expectedFamilies":["completeness","operational"]},"correctNode":true,"correctFamily":true},{"index":7863,"clock":"2024-11-23 15:00:00","score":10.45,"alert":true,"nodeScores":[0.4912,0.9958,0.311,0.9673,0.9941,0.9975,0.9941,0.9925,0.995],"ranking":[5,1,8,4,6,7,3,0,2],"predictedRoot":5,"families":[{"key":"operational","label":"How the task ran","value":0.75},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":38.73},{"key":"metric_distribution","label":"The main number looks wrong","value":2.48},{"key":"numeric_distribution","label":"Other numbers look wrong","value":48.181},{"key":"categorical_distribution","label":"Category values look wrong","value":47.254},{"key":"temporal","label":"Timing and freshness","value":0.747},{"key":"integrity","label":"Keys not matching up","value":142.665}],"topFeature":"orphan_fk_rate","truth":{"broken":true,"fault":"fk_break","faultPlain":"Keys stopped matching","faultDescription":"Key formatting drifts upstream, so joins orphan rows or drop them entirely.","rootNode":1,"severity":0.9,"affected":[1,4,5,6,7,8],"expectedFamilies":["integrity"]},"correctNode":false,"correctFamily":true},{"index":6978,"clock":"2024-10-17 18:00:00","score":12.35,"alert":true,"nodeScores":[0.0226,0.2364,0.1048,0.6748,0.0109,0.1073,0.9992,0.9983,0.9958],"ranking":[6,7,8,3,1,5,2,0,4],"predictedRoot":6,"families":[{"key":"operational","label":"How the task ran","value":24.604},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":58.774},{"key":"metric_distribution","label":"The main number looks wrong","value":0.122},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.86},{"key":"categorical_distribution","label":"Category values look wrong","value":0.027},{"key":"temporal","label":"Timing and freshness","value":0.242},{"key":"integrity","label":"Keys not matching up","value":0.002}],"topFeature":"dup_pk_rate","truth":{"broken":true,"fault":"join_fanout","faultPlain":"A join exploded into extra rows","faultDescription":"Duplicate dimension keys turn a 1:1 join into 1:N and explode the fact table.","rootNode":6,"severity":0.62,"affected":[6,7,8],"expectedFamilies":["completeness","metric_distribution","operational"]},"correctNode":true,"correctFamily":true},{"index":7423,"clock":"2024-11-05 07:00:00","score":3.627,"alert":true,"nodeScores":[0.995,0.0553,0.7158,0.9086,0.9447,0.0134,0.6731,0.4526,0.8206],"ranking":[0,4,3,8,2,6,7,1,5],"predictedRoot":0,"families":[{"key":"operational","label":"How the task ran","value":16.537},{"key":"schema","label":"Shape of the table","value":0.001},{"key":"completeness","label":"Missing or duplicated data","value":0.111},{"key":"metric_distribution","label":"The main number looks wrong","value":0.573},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.036},{"key":"categorical_distribution","label":"Category values look wrong","value":0.265},{"key":"temporal","label":"Timing and freshness","value":0.026},{"key":"integrity","label":"Keys not matching up","value":0.0}],"topFeature":"log_queue_delay_sec","truth":{"broken":true,"fault":"late_arrival","faultPlain":"Data arrived late and stale","faultDescription":"The source lags: the batch carries stale events and the task queues behind SLA.","rootNode":0,"severity":0.92,"affected":[0],"expectedFamilies":["operational","temporal"]},"correctNode":true,"correctFamily":true},{"index":7109,"clock":"2024-10-23 05:00:00","score":11.332,"alert":true,"nodeScores":[0.1735,0.5641,0.062,0.4744,0.5616,0.9983,0.9941,0.8969,0.9883],"ranking":[5,6,8,7,1,4,3,0,2],"predictedRoot":5,"families":[{"key":"operational","label":"How the task ran","value":0.118},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":56.239},{"key":"metric_distribution","label":"The main number looks wrong","value":1.223},{"key":"numeric_distribution","label":"Other numbers look wrong","value":47.7},{"key":"categorical_distribution","label":"Category values look wrong","value":0.861},{"key":"temporal","label":"Timing and freshness","value":0.465},{"key":"integrity","label":"Keys not matching up","value":0.0}],"topFeature":"null_rate_mean","truth":{"broken":true,"fault":"null_spike","faultPlain":"Fields went empty","faultDescription":"A source system starts emitting nulls for one or more fields.","rootNode":5,"severity":0.76,"affected":[5,6,7,8],"expectedFamilies":["completeness"]},"correctNode":true,"correctFamily":true},{"index":7027,"clock":"2024-10-19 19:00:00","score":10.464,"alert":true,"nodeScores":[0.7938,0.4107,0.9028,0.9422,0.9983,0.9975,0.995,0.9908,0.9589],"ranking":[4,5,6,7,8,3,2,0,1],"predictedRoot":4,"families":[{"key":"operational","label":"How the task ran","value":0.244},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":78.58},{"key":"metric_distribution","label":"The main number looks wrong","value":0.289},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.101},{"key":"categorical_distribution","label":"Category values look wrong","value":0.188},{"key":"temporal","label":"Timing and freshness","value":0.061},{"key":"integrity","label":"Keys not matching up","value":0.002}],"topFeature":"pk_null_rate","truth":{"broken":true,"fault":"pk_null","faultPlain":"Record IDs went missing","faultDescription":"Primary keys arrive null, breaking dedup and idempotent upserts.","rootNode":4,"severity":0.84,"affected":[4,5,6],"expectedFamilies":["completeness"]},"correctNode":true,"correctFamily":true},{"index":6469,"clock":"2024-09-26 13:00:00","score":9.398,"alert":true,"nodeScores":[0.1065,0.3571,0.0612,0.8759,0.9975,0.9061,0.5247,0.7301,0.8164],"ranking":[4,5,3,8,7,6,1,0,2],"predictedRoot":4,"families":[{"key":"operational","label":"How the task ran","value":47.17},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.002},{"key":"metric_distribution","label":"The main number looks wrong","value":0.403},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.082},{"key":"categorical_distribution","label":"Category values look wrong","value":0.439},{"key":"temporal","label":"Timing and freshness","value":0.278},{"key":"integrity","label":"Keys not matching up","value":0.0}],"topFeature":"retry_count","truth":{"broken":true,"fault":"resource_degradation","faultPlain":"The task ran slow, data was fine","faultDescription":"Cluster contention: the task retries and blows its SLA while its output stays valid.","rootNode":4,"severity":0.98,"affected":[4],"expectedFamilies":["operational"]},"correctNode":true,"correctFamily":true},{"index":6219,"clock":"2024-09-16 03:00:00","score":19.552,"alert":true,"nodeScores":[0.922,0.4526,0.9623,0.2322,0.9908,0.9799,0.601,0.9992,0.9983],"ranking":[7,8,4,5,2,0,6,1,3],"predictedRoot":7,"families":[{"key":"operational","label":"How the task ran","value":20.368},{"key":"schema","label":"Shape of the table","value":0.001},{"key":"completeness","label":"Missing or duplicated data","value":0.003},{"key":"metric_distribution","label":"The main number looks wrong","value":14.349},{"key":"numeric_distribution","label":"Other numbers look wrong","value":1.109},{"key":"categorical_distribution","label":"Category values look wrong","value":111.24},{"key":"temporal","label":"Timing and freshness","value":0.001},{"key":"integrity","label":"Keys not matching up","value":0.002}],"topFeature":"cat_top1_share","truth":{"broken":true,"fault":"row_loss_truncation","faultPlain":"Rows went missing","faultDescription":"A partial upstream load truncates the batch; rows silently go missing.","rootNode":7,"severity":0.87,"affected":[7,8],"expectedFamilies":["operational"]},"correctNode":true,"correctFamily":false},{"index":7946,"clock":"2024-11-27 02:00:00","score":7.833,"alert":true,"nodeScores":[0.9966,0.4652,0.1626,0.9329,0.0075,0.2246,0.2984,0.5541,0.9128],"ranking":[0,3,8,7,1,6,5,2,4],"predictedRoot":0,"families":[{"key":"operational","label":"How the task ran","value":0.242},{"key":"schema","label":"Shape of the table","value":71.878},{"key":"completeness","label":"Missing or duplicated data","value":0.959},{"key":"metric_distribution","label":"The main number looks wrong","value":0.549},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.448},{"key":"categorical_distribution","label":"Category values look wrong","value":0.069},{"key":"temporal","label":"Timing and freshness","value":0.061},{"key":"integrity","label":"Keys not matching up","value":0.004}],"topFeature":"schema_change_flag","truth":{"broken":true,"fault":"schema_column_add","faultPlain":"An unexpected column appeared","faultDescription":"A producer adds unannounced columns; contracts and downstream selects drift.","rootNode":0,"severity":0.55,"affected":[0],"expectedFamilies":["schema"]},"correctNode":true,"correctFamily":true},{"index":7497,"clock":"2024-11-08 09:00:00","score":23.582,"alert":true,"nodeScores":[0.9849,0.9916,1.2117,0.9673,0.9908,0.9681,1.0091,0.9908,0.9707],"ranking":[2,6,1,4,7,0,8,5,3],"predictedRoot":2,"families":[{"key":"operational","label":"How the task ran","value":0.614},{"key":"schema","label":"Shape of the table","value":107.905},{"key":"completeness","label":"Missing or duplicated data","value":0.002},{"key":"metric_distribution","label":"The main number looks wrong","value":0.672},{"key":"numeric_distribution","label":"Other numbers look wrong","value":10.383},{"key":"categorical_distribution","label":"Category values look wrong","value":109.071},{"key":"temporal","label":"Timing and freshness","value":0.145},{"key":"integrity","label":"Keys not matching up","value":0.006}],"topFeature":"cat_top1_share","truth":{"broken":true,"fault":"schema_column_drop","faultPlain":"A column disappeared","faultDescription":"An upstream schema migration silently removes a column.","rootNode":2,"severity":0.92,"affected":[2,6],"expectedFamilies":["schema"]},"correctNode":true,"correctFamily":false},{"index":6287,"clock":"2024-09-18 23:00:00","score":10.557,"alert":true,"nodeScores":[0.6966,0.746,0.9883,0.4619,0.4904,0.7142,0.9975,0.5256,0.7611],"ranking":[6,2,8,1,5,0,7,4,3],"predictedRoot":6,"families":[{"key":"operational","label":"How the task ran","value":0.327},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.468},{"key":"metric_distribution","label":"The main number looks wrong","value":2.427},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.753},{"key":"categorical_distribution","label":"Category values look wrong","value":0.179},{"key":"temporal","label":"Timing and freshness","value":89.931},{"key":"integrity","label":"Keys not matching up","value":0.0}],"topFeature":"log_ts_lag_max","truth":{"broken":true,"fault":"timezone_shift","faultPlain":"Timestamps shifted by hours","faultDescription":"A producer switches from UTC to local time; event times jump by hours.","rootNode":6,"severity":0.9,"affected":[6],"expectedFamilies":["temporal"]},"correctNode":true,"correctFamily":true},{"index":6598,"clock":"2024-10-01 22:00:00","score":13.085,"alert":true,"nodeScores":[0.6094,0.6412,0.3277,0.9422,1.0266,0.9883,0.9908,0.8927,0.9681],"ranking":[4,6,5,8,3,7,1,0,2],"predictedRoot":4,"families":[{"key":"operational","label":"How the task ran","value":0.379},{"key":"schema","label":"Shape of the table","value":72.138},{"key":"completeness","label":"Missing or duplicated data","value":39.856},{"key":"metric_distribution","label":"The main number looks wrong","value":1.431},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.073},{"key":"categorical_distribution","label":"Category values look wrong","value":0.377},{"key":"temporal","label":"Timing and freshness","value":0.5},{"key":"integrity","label":"Keys not matching up","value":0.001}],"topFeature":"type_mismatch_rate","truth":{"broken":true,"fault":"type_mismatch","faultPlain":"Numbers arrived as text","faultDescription":"A numeric column arrives as text; a fraction of casts fail and become nulls.","rootNode":4,"severity":0.88,"affected":[4,5,6,7,8],"expectedFamilies":["completeness","schema"]},"correctNode":true,"correctFamily":true},{"index":7813,"clock":"2024-11-21 13:00:00","score":5.062,"alert":true,"nodeScores":[0.2246,0.0922,0.9715,0.7921,0.9975,0.9606,0.969,0.8843,0.6203],"ranking":[4,2,6,5,7,3,8,0,1],"predictedRoot":4,"families":[{"key":"operational","label":"How the task ran","value":0.354},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.003},{"key":"metric_distribution","label":"The main number looks wrong","value":23.391},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.359},{"key":"categorical_distribution","label":"Category values look wrong","value":0.15},{"key":"temporal","label":"Timing and freshness","value":0.185},{"key":"integrity","label":"Keys not matching up","value":0.004}],"topFeature":"metric_mean","truth":{"broken":true,"fault":"unit_change","faultPlain":"Units changed, e.g. rupees to paise","faultDescription":"A currency or unit convention changes upstream (e.g. rupees -> paise).","rootNode":4,"severity":0.75,"affected":[4,5,6,7,8],"expectedFamilies":["metric_distribution"]},"correctNode":true,"correctFamily":true},{"index":7307,"clock":"2024-10-31 11:00:00","score":16.168,"alert":true,"nodeScores":[0.6614,0.2112,0.2339,0.86,0.1702,0.1534,1.2203,0.9983,0.9966],"ranking":[6,7,8,3,0,2,1,4,5],"predictedRoot":6,"families":[{"key":"operational","label":"How the task ran","value":2.904},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.544},{"key":"metric_distribution","label":"The main number looks wrong","value":71.039},{"key":"numeric_distribution","label":"Other numbers look wrong","value":1.267},{"key":"categorical_distribution","label":"Category values look wrong","value":0.016},{"key":"temporal","label":"Timing and freshness","value":0.09},{"key":"integrity","label":"Keys not matching up","value":0.001}],"topFeature":"metric_std","truth":{"broken":true,"fault":"value_corruption","faultPlain":"Values were corrupted","faultDescription":"Sensor/ingest corruption injects extreme or sentinel values into a measure.","rootNode":6,"severity":0.67,"affected":[6,7,8],"expectedFamilies":["metric_distribution"]},"correctNode":true,"correctFamily":true},{"index":7430,"clock":"2024-11-05 14:00:00","score":1.543,"alert":false,"nodeScores":[0.3336,0.6681,0.2297,0.7368,0.9656,0.3705,0.7075,0.922,0.8709],"ranking":[4,7,8,3,6,1,5,0,2],"predictedRoot":4,"families":[{"key":"operational","label":"How the task ran","value":0.802},{"key":"schema","label":"Shape of the table","value":0.001},{"key":"completeness","label":"Missing or duplicated data","value":0.001},{"key":"metric_distribution","label":"The main number looks wrong","value":7.497},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.079},{"key":"categorical_distribution","label":"Category values look wrong","value":0.161},{"key":"temporal","label":"Timing and freshness","value":0.22},{"key":"integrity","label":"Keys not matching up","value":0.003}],"topFeature":"metric_max","truth":{"broken":false,"fault":"none","faultPlain":"Healthy run","faultDescription":"Nothing was injected into this run.","rootNode":-1,"severity":0.0,"affected":[],"expectedFamilies":[]},"correctNode":false,"correctFamily":false},{"index":7872,"clock":"2024-11-24 00:00:00","score":0.71,"alert":false,"nodeScores":[0.9237,0.2733,0.9078,0.7955,0.5323,0.8927,0.8726,0.2783,0.9396],"ranking":[8,0,2,5,6,3,4,7,1],"predictedRoot":8,"families":[{"key":"operational","label":"How the task ran","value":1.102},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.003},{"key":"metric_distribution","label":"The main number looks wrong","value":0.508},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.707},{"key":"categorical_distribution","label":"Category values look wrong","value":0.27},{"key":"temporal","label":"Timing and freshness","value":0.001},{"key":"integrity","label":"Keys not matching up","value":0.002}],"topFeature":"log_queue_delay_sec","truth":{"broken":false,"fault":"none","faultPlain":"Healthy run","faultDescription":"Nothing was injected into this run.","rootNode":-1,"severity":0.0,"affected":[],"expectedFamilies":[]},"correctNode":false,"correctFamily":false},{"index":7747,"clock":"2024-11-18 19:00:00","score":0.323,"alert":false,"nodeScores":[0.2959,0.7762,0.451,0.8583,0.7083,0.6932,0.4049,0.1643,0.6278],"ranking":[3,1,4,5,8,2,6,0,7],"predictedRoot":3,"families":[{"key":"operational","label":"How the task ran","value":0.889},{"key":"schema","label":"Shape of the table","value":0.001},{"key":"completeness","label":"Missing or duplicated data","value":0.013},{"key":"metric_distribution","label":"The main number looks wrong","value":0.604},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.005},{"key":"categorical_distribution","label":"Category values look wrong","value":0.01},{"key":"temporal","label":"Timing and freshness","value":0.067},{"key":"integrity","label":"Keys not matching up","value":0.004}],"topFeature":"cpu_util","truth":{"broken":false,"fault":"none","faultPlain":"Healthy run","faultDescription":"Nothing was injected into this run.","rootNode":-1,"severity":0.0,"affected":[],"expectedFamilies":[]},"correctNode":false,"correctFamily":false},{"index":7025,"clock":"2024-10-19 17:00:00","score":2.416,"alert":false,"nodeScores":[0.0738,0.9581,0.0545,0.2381,0.9581,0.9757,0.5071,0.9547,0.8826],"ranking":[5,1,4,7,8,6,3,0,2],"predictedRoot":5,"families":[{"key":"operational","label":"How the task ran","value":5.364},{"key":"schema","label":"Shape of the table","value":0.0},{"key":"completeness","label":"Missing or duplicated data","value":0.009},{"key":"metric_distribution","label":"The main number looks wrong","value":4.046},{"key":"numeric_distribution","label":"Other numbers look wrong","value":0.001},{"key":"categorical_distribution","label":"Category values look wrong","value":0.034},{"key":"temporal","label":"Timing and freshness","value":4.615},{"key":"integrity","label":"Keys not matching up","value":0.001}],"topFeature":"retry_count","truth":{"broken":false,"fault":"none","faultPlain":"Healthy run","faultDescription":"Nothing was injected into this run.","rootNode":-1,"severity":0.0,"affected":[],"expectedFamilies":[]},"correctNode":false,"correctFamily":false}],"stats":{"hitAt1":0.797,"hitAt3":0.973,"auprc":0.953,"attribution":0.935,"totalRuns":8000,"incidents":273}};
+
+/* Fixed layout: the pipeline shape never changes, and hand-placing it reads far
+   better than any auto-layout would at this size. */
+const NW = 150, NH = 56;
+const LAYOUT = [
+  {x:20,y:20},   {x:20,y:126},  {x:20,y:232},
+  {x:208,y:20},  {x:208,y:126},
+  {x:396,y:73},  {x:584,y:126}, {x:772,y:126}, {x:960,y:126}
+];
+
+const $ = id => document.getElementById(id);
+let current = 0, revealed = false;
+
+/* ---------- diagram ---------- */
+function buildDag(){
+  const svg = $('dag');
+  const ns = 'http://www.w3.org/2000/svg';
+  svg.innerHTML = '<title id="dagTitle">Pipeline diagram</title>';
+
+  const g = document.createElementNS(ns, 'g');
+  svg.appendChild(g);
+  DATA.edges.forEach(([a, b], i) => {
+    const s = LAYOUT[a], t = LAYOUT[b];
+    const x1 = s.x + NW, y1 = s.y + NH / 2, x2 = t.x, y2 = t.y + NH / 2;
+    const mid = (x1 + x2) / 2;
+    const p = document.createElementNS(ns, 'path');
+    p.setAttribute('d', `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`);
+    p.setAttribute('class', 'edge');
+    p.dataset.edge = i;
+    g.appendChild(p);
+  });
+
+  DATA.nodes.forEach((n, i) => {
+    const L = LAYOUT[i];
+    const grp = document.createElementNS(ns, 'g');
+    grp.setAttribute('class', 'node');
+    grp.dataset.node = i;
+    const r = document.createElementNS(ns, 'rect');
+    r.setAttribute('x', L.x); r.setAttribute('y', L.y);
+    r.setAttribute('width', NW); r.setAttribute('height', NH);
+    grp.appendChild(r);
+    n.label.split(' + ').forEach((line, li, arr) => {
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', L.x + 14);
+      t.setAttribute('y', L.y + (arr.length > 1 ? 24 + li * 16 : 32));
+      t.textContent = line + (arr.length > 1 && li === 0 ? ' +' : '');
+      grp.appendChild(t);
+    });
+    const tag = document.createElementNS(ns, 'text');
+    tag.setAttribute('class', 'tag');
+    tag.setAttribute('x', L.x + NW - 12); tag.setAttribute('y', L.y + 17);
+    tag.setAttribute('text-anchor', 'end');
+    tag.textContent = '';
+    grp.appendChild(tag);
+    svg.appendChild(grp);
+  });
+}
+
+function paintDag(run){
+  const hit = new Set(run.truth.affected);
+  const root = run.alert ? run.predictedRoot : -1;
+  // Stagger by column so the highlight travels left to right, which is the
+  // direction the damage actually travels.
+  DATA.nodes.forEach((n, i) => {
+    const g = document.querySelector(`.node[data-node="${i}"]`);
+    const tag = g.querySelector('.tag');
+    const delay = LAYOUT[i].x / 1160 * 320;
+    setTimeout(() => {
+      g.classList.toggle('hit', hit.has(i) && i !== root);
+      g.classList.toggle('root', i === root);
+      tag.textContent = i === root ? 'CAUSE' : '';
+    }, delay);
+  });
+  DATA.edges.forEach(([a, b], i) => {
+    const p = document.querySelector(`.edge[data-edge="${i}"]`);
+    p.classList.toggle('flow', run.alert && hit.has(a) && hit.has(b));
+  });
+}
+
+/* ---------- panels ---------- */
+function paintVerdict(run){
+  const v = $('verdict'), max = Math.max(DATA.threshold * 3, run.score);
+  v.classList.toggle('alert', run.alert);
+  $('badge').innerHTML = run.alert
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/>
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        Broken`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5 5L20 6"/></svg>
+        Healthy`;
+  $('verdictTitle').textContent = run.alert
+    ? 'This run needs attention'
+    : 'This run looks normal';
+  $('verdictSub').textContent = run.alert
+    ? `Surprise score ${run.score}, well over the ${DATA.threshold} alert line`
+    : `Surprise score ${run.score}, under the ${DATA.threshold} alert line`;
+  $('meterFill').style.transform =
+    `scaleX(${Math.min(1, run.score / max)})`;
+  $('meterMark').style.left = (DATA.threshold / max * 100) + '%';
+  $('meterMax').textContent = max.toFixed(1);
+}
+
+function paintRanking(run){
+  const top = run.ranking.slice(0, 5);
+  $('ranking').innerHTML = top.map((idx, k) => `
+    <div class="rank${k === 0 && run.alert ? ' top' : ''}">
+      <span class="rank-n">${k + 1}</span>
+      <span class="rank-name">${DATA.nodes[idx].label}</span>
+      <span class="rank-bar"><span class="rank-fill"></span></span>
+      <span class="rank-val">${run.nodeScores[idx].toFixed(2)}</span>
+    </div>`).join('');
+  // Absolute scale: 1.0 is the edge of normal and sits at the midpoint tick,
+  // so a bar past halfway means "beyond anything seen in training".
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#ranking .rank-fill').forEach((el, k) => {
+      el.style.transform = `scaleX(${Math.min(1, run.nodeScores[top[k]] / 2)})`;
+    });
+  });
+}
+
+function paintFamilies(run){
+  const fams = [...run.families].sort((a, b) => b.value - a.value).slice(0, 4);
+  const max = Math.max(...fams.map(f => f.value), 1e-6);
+  $('families').innerHTML = fams.map((f, k) => `
+    <div class="rank${k === 0 && run.alert ? ' top' : ''}">
+      <span class="rank-name" style="width:auto;flex:1">${f.label}</span>
+      <span class="rank-bar" style="flex:0 0 120px"><span class="rank-fill"></span></span>
+    </div>`).join('');
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#families .rank-fill').forEach((el, k) => {
+      el.style.transform = `scaleX(${fams[k].value / max})`;
+    });
+  });
+  $('diagnosis').innerHTML = run.alert
+    ? `<b>${DATA.nodes[run.predictedRoot].label}</b> looks wrong in a way its own
+       inputs do not explain. The strongest signal is
+       <b>${fams[0].label.toLowerCase()}</b>, driven by
+       <code style="font-family:var(--mono);font-size:12.5px">${run.topFeature}</code>.`
+    : `Nothing stands out. Every task is close to how it normally behaves.`;
+}
+
+function paintTruth(run){
+  const t = run.truth;
+  $('truth').innerHTML = `
+    <div class="truth-row">
+      <div class="truth-item"><dt>What was injected</dt>
+        <dd>${t.faultPlain}</dd></div>
+      <div class="truth-item"><dt>Into which task</dt>
+        <dd>${t.rootNode >= 0 ? DATA.nodes[t.rootNode].label : 'Nothing'}</dd></div>
+      <div class="truth-item"><dt>How severe</dt>
+        <dd>${t.broken ? t.severity.toFixed(2) + ' of 1.00' : 'n/a'}</dd></div>
+      <div class="truth-item"><dt>Tasks it reached</dt>
+        <dd>${t.broken ? t.affected.length + ' of 9' : '0 of 9'}</dd></div>
+    </div>
+    ${t.broken ? `<div class="marks">
+      <span class="mark${run.correctNode ? '' : ' no'}">${run.correctNode
+        ? tick() : cross()} Task ${run.correctNode ? 'correct' : 'wrong'}</span>
+      <span class="mark${run.correctFamily ? '' : ' no'}">${run.correctFamily
+        ? tick() : cross()} Symptom ${run.correctFamily ? 'correct' : 'wrong'}</span>
+    </div>` : `<div class="marks"><span class="mark">${tick()} Correctly left
+      alone</span></div>`}`;
+}
+const tick = () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="m4 12 5 5L20 6"/></svg>`;
+const cross = () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+
+/* ---------- wiring ---------- */
+function select(i){
+  current = i; revealed = false;
+  const run = DATA.runs[i];
+  document.querySelectorAll('.run').forEach((el, k) =>
+    el.setAttribute('aria-current', k === i ? 'true' : 'false'));
+  paintVerdict(run); paintDag(run); paintRanking(run); paintFamilies(run);
+  paintTruth(run);
+  $('truth').classList.remove('show');
+  $('revealBtn').setAttribute('aria-expanded', 'false');
+  $('revealLabel').textContent = 'Show what actually happened';
+}
+
+function buildList(){
+  const n = DATA.runs.filter(r => r.truth.broken).length;
+  $('asideSub').textContent = `${n} broken, ${DATA.runs.length - n} healthy`;
+  $('runList').innerHTML = DATA.runs.map((r, i) => `
+    <button class="run ${r.truth.broken ? 'bad' : ''}" role="option"
+            aria-current="${i === 0}" data-i="${i}">
+      <span class="pip"></span>
+      <span class="run-txt">
+        <span class="run-name">${r.truth.broken ? r.truth.faultPlain : 'Normal run'}</span>
+        <span class="run-sub">${r.clock.slice(0,16)}</span>
+      </span>
+    </button>`).join('');
+  $('runList').addEventListener('click', e => {
+    const b = e.target.closest('.run');
+    if (b) select(+b.dataset.i);
+  });
+}
+
+$('revealBtn').addEventListener('click', () => {
+  revealed = !revealed;
+  $('truth').classList.toggle('show', revealed);
+  $('revealBtn').setAttribute('aria-expanded', String(revealed));
+  $('revealLabel').textContent = revealed
+    ? 'Hide what actually happened' : 'Show what actually happened';
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowRight'){
+    e.preventDefault(); select(Math.min(DATA.runs.length - 1, current + 1));
+  } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft'){
+    e.preventDefault(); select(Math.max(0, current - 1));
+  } else if (e.key === ' ' && e.target === document.body){
+    e.preventDefault(); $('revealBtn').click();
+  }
+});
+
+buildList(); buildDag(); select(0);
+</script>
+</body>
+</html>

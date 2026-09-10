@@ -25,6 +25,9 @@ artifacts/**
 !artifacts/report/*.pdf
 !artifacts/slides/
 !artifacts/slides/*.pptx
+!artifacts/web/
+!artifacts/web/*.html
+!artifacts/web/*.json
 # reference.docx is a pandoc style template the build script regenerates.
 artifacts/report/reference.docx
 !artifacts/results/

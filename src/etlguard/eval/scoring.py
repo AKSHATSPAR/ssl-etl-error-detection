@@ -106,13 +106,36 @@ class NodeCalibration:
             which=("e_hist", "e_ctx", "e_anc")) -> "NodeCalibration":
         return cls({name: np.sort(getattr(bundle, name), axis=0) for name in which})
 
+    @classmethod
+    def from_cache(cls, path, which=("e_hist", "e_ctx", "e_anc")):
+        """Load the reference the evaluation used, from its saved score arrays.
+
+        The demo and the reported numbers have to be calibrated against the same
+        reference. Recomputing it from a coarser sample of training windows is
+        cheaper but shifts the ranking, so the demo would quietly disagree with
+        the results it is demonstrating.
+        """
+        import numpy as _np
+        z = _np.load(str(path))
+        return cls({n: _np.sort(z[f"cal_{n}"], axis=0) for n in which
+                    if f"cal_{n}" in z})
+
     def apply(self, values: np.ndarray, which: str) -> np.ndarray:
         ref = self.reference[which]
         n_ref = ref.shape[0]
         out = np.empty_like(values, dtype=np.float64)
         for i in range(values.shape[1]):
             out[:, i] = np.searchsorted(ref[:, i], values[:, i]) / n_ref
-        return out
+
+        # A plain percentile caps at 1.0, so every value above the reference
+        # maximum is indistinguishable and ranking among them falls back to
+        # array order. Past the cap, keep ranking by how far beyond the maximum
+        # a value sits, measured in units of the reference spread. Values at or
+        # below the maximum are untouched, so detection and localization metrics
+        # are unchanged; only the ties are broken, and now by something real.
+        top, mid = ref[-1], ref[n_ref // 2]
+        spread = np.maximum(top - mid, 1e-9)
+        return out + np.where(values > top, (values - top) / spread, 0.0)
 
 
 def calibrate_node_scores(reference: np.ndarray, values: np.ndarray) -> np.ndarray:

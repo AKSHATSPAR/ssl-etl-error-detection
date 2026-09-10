@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from etlguard.data.dataset import TEST, TRAIN, ETLData, ETLWindowDataset
 from etlguard.eval.explain import family_scores
-from etlguard.eval.scoring import NodeCalibration, descendant_mask, score_loader
+from etlguard.eval.scoring import (NodeCalibration, descendant_mask,
+                                   score_loader)
 from etlguard.models.st_transformer import ModelConfig, STTransformer
 from etlguard.simulator.faults import SYMPTOM_FAMILY
 from etlguard.simulator.profiler import FEATURE_GROUPS
@@ -60,10 +61,20 @@ def main() -> None:
     model.eval()
 
     # Calibration reference from unlabelled training runs, as at evaluation time.
-    cal_ds = ETLWindowDataset(data, TRAIN, args.window, stride=16)
-    cal_b = score_loader(model, DataLoader(cal_ds, batch_size=64), device,
-                         data.n_nodes, data.adjacency)
-    calib = NodeCalibration.fit(cal_b)
+    # Reuse the evaluation's own calibration reference when it is available, so
+    # the demo agrees with the published numbers instead of quietly re-deriving
+    # a coarser reference and ranking slightly differently.
+    cache = Path("artifacts/results/scores_ssl.npz")
+    if cache.exists():
+        calib = NodeCalibration.from_cache(cache)
+        ref = np.load(str(cache))["cal_e_anc"]
+    else:
+        cal_ds = ETLWindowDataset(data, TRAIN, args.window, stride=16)
+        cal_b = score_loader(model, DataLoader(cal_ds, batch_size=64), device,
+                             data.n_nodes, data.adjacency)
+        calib = NodeCalibration.fit(cal_b)
+        ref = cal_b.e_anc
+    threshold = float(np.percentile(ref.max(axis=1), 95))
 
     test_ds = ETLWindowDataset(data, TEST, args.window)
     ends = test_ds.ends
@@ -92,11 +103,12 @@ def main() -> None:
 
     # A threshold at the 95th percentile of calibration runs: about one alert in
     # twenty, which is a plausible on-call budget.
-    thresh = float(np.percentile(cal_b.e_anc.max(axis=1), 95))
+    thresh = threshold
 
     for row in range(len(picks)):
         t = int(b.t[row])
-        ts = np.datetime64(int(data.timestamps[t]), "s")
+        ts = (np.datetime64("2024-01-01T00:00:00") +
+              np.timedelta64(t, "h"))
         truth_type = data.fault_labels[int(b.y_type[row])]
         broken = b.y_type[row] > 0
 
