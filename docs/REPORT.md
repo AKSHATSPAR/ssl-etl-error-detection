@@ -616,9 +616,12 @@ per relation rather than a mask.
 
 ## 8. Ablation Study
 
-Every configuration received an identical 40-epoch budget, so "this component
-helps" cannot be confused with "this run trained longer". Three seeds of the full
-model establish the noise floor.
+Every configuration received an identical budget, 40 epochs with the same
+early-stopping patience of 8, so "this component helps" cannot be confused with
+"this run trained longer". One seed stopped at epoch 33 on that rule; since
+checkpoints are selected on best validation loss rather than the final epoch,
+that neither helps nor hurts it. Three seeds of the full model establish the
+noise floor.
 
 **Baseline, three seeds:** AUPRC 0.951 ± 0.001, Hit@1 0.805 ± 0.011, MRR 0.887 ± 0.007.
 
@@ -629,7 +632,7 @@ model establish the noise floor.
 | No DAG attention bias | 0.435 | 0.953 | 0.801 | 0.884 | -0.005 | within noise |
 | No calendar features | 0.433 | 0.953 | 0.790 | 0.879 | -0.015 | within noise |
 | Contrastive objective added | 0.486 | 0.953 | 0.787 | 0.880 | -0.018 | within noise |
-| Longer training (57 epochs) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
+| Longer training (57 epochs, budget lifted) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
 
 ### 8.1 None of the architectural choices matter
 

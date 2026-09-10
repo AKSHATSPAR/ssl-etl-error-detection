@@ -255,9 +255,11 @@ as real.
 
 ## 7. Ablations and seed repeats
 
-Identical 40-epoch budget for every configuration, so that "this component helps"
-cannot be confused with "this run trained longer". Three seeds set the noise
-floor: **AUPRC 0.951 ± 0.001, Hit@1 0.805 ± 0.011, MRR 0.887 ± 0.007**.
+Identical budget for every configuration, 40 epochs with the same early-stopping
+patience of 8, so that "this component helps" cannot be confused with "this run
+trained longer". One seed stopped at 33 epochs on that rule, which neither helps
+nor hurts it because checkpoints are selected on best validation loss rather than
+the final epoch. Three seeds set the noise floor: **AUPRC 0.951 ± 0.001, Hit@1 0.805 ± 0.011, MRR 0.887 ± 0.007**.
 
 | Configuration | val recon | AUPRC | Hit@1 | MRR | Delta Hit@1 | Verdict |
 |---|---|---|---|---|---|---|
@@ -266,7 +268,7 @@ floor: **AUPRC 0.951 ± 0.001, Hit@1 0.805 ± 0.011, MRR 0.887 ± 0.007**.
 | No DAG attention bias | 0.435 | 0.953 | 0.801 | 0.884 | -0.005 | within noise |
 | No calendar features | 0.433 | 0.953 | 0.790 | 0.879 | -0.015 | within noise |
 | Contrastive added | 0.486 | 0.953 | 0.787 | 0.880 | -0.018 | within noise |
-| Longer training (57 ep) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
+| Longer training (57 ep, budget lifted) | **0.405** | 0.948 | **0.756** | 0.861 | **-0.049** | **outside noise** |
 
 ### None of the architectural choices matter
 
