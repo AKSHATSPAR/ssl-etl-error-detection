@@ -238,8 +238,7 @@ footer b{color:var(--ink-2); font-weight:600}
       </div>
       <div class="panel diagram">
         <svg class="dag" id="dag" viewBox="0 0 1160 330"
-             role="img" aria-labelledby="dagTitle"><title id="dagTitle">Pipeline
-             diagram</title></svg>
+             role="img" aria-label="Pipeline diagram"></svg>
         <div class="legend">
           <span><i style="background:#fff"></i>Unaffected</span>
           <span><i style="background:var(--alert-wash);border-color:var(--alert)"></i>Affected</span>
@@ -305,7 +304,7 @@ let current = 0, revealed = false;
 function buildDag(){
   const svg = $('dag');
   const ns = 'http://www.w3.org/2000/svg';
-  svg.innerHTML = '<title id="dagTitle">Pipeline diagram</title>';
+  svg.innerHTML = '';
 
   const g = document.createElementNS(ns, 'g');
   svg.appendChild(g);
