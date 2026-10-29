@@ -7,6 +7,10 @@ carry meaning, every distinction has to be made with value, weight, size or
 rule. So emphasis here is a solid black panel with reversed text, de-emphasis is
 a light grey fill, and the figures are redrawn rather than desaturated, because
 desaturating a colour chart collapses distinct hues into near-identical greys.
+
+The one deliberate exception is the screenshot of the running system. The rule
+covers type and drawn illustration; a screenshot is a photograph of something
+that exists, and greying it out would misrepresent the thing being shown.
 """
 
 from __future__ import annotations
@@ -560,7 +564,35 @@ def build():
     notes(s, "Volunteering limitations is stronger than conceding them. Each has a "
              "specific reason and, where relevant, a named fix.")
 
-    # 16 -------------------------------------------------------- conclusion
+
+    # 18 -------------------------------------------------- the running system
+    s = blank(prs)
+    title(s, "The system, running",
+          "One hour of a pipeline it had never seen, diagnosed end to end")
+    pic(s, "../shots/demo_screenshot.png", 0.85, 2.3, w=9.1)
+    box(s, 10.25, 2.3, 2.2, 4.25, PALE)
+    # The panel is narrow, so the labels wrap; sizes are set to fit rather than
+    # left to overflow the box.
+    text(s, 10.5, 2.62, 1.75, 3.85,
+         [("1", {"size": 17, "bold": True, "font": HEAD, "color": BLACK,
+                 "space": 1}),
+          ("Is it broken", {"size": 11.5, "color": DARK, "space": 11}),
+          ("2", {"size": 17, "bold": True, "font": HEAD, "color": BLACK,
+                 "space": 1}),
+          ("Which task", {"size": 11.5, "color": DARK, "space": 11}),
+          ("3", {"size": 17, "bold": True, "font": HEAD, "color": BLACK,
+                 "space": 1}),
+          ("What kind of problem", {"size": 11.5, "color": DARK, "space": 11}),
+          ("The answer stays hidden until you ask for it.",
+           {"size": 10.5, "italic": True, "color": MID})], line=1.12)
+    text(s, 0.85, 6.75, 11.6, 0.5,
+         "One file, no server and no internet. The ground truth is revealed on "
+         "a click, so the answer can be checked rather than believed.",
+         size=12.5, color=DARK)
+    notes(s, "This is a real screenshot, so it keeps its own colour while the rest "
+             "of the deck is monochrome. Offer to run it live if there is time.")
+
+    # 19 -------------------------------------------------------- conclusion
     s = blank(prs, dark=True)
     text(s, 1.0, 1.5, 11.3, 0.8, "What was delivered", size=32, bold=True,
          font=HEAD, color=WHITE)

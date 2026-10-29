@@ -25,6 +25,10 @@ artifacts/**
 !artifacts/report/*.pdf
 !artifacts/slides/
 !artifacts/slides/*.pptx
+!artifacts/slides/bw/
+!artifacts/slides/bw/*.png
+!artifacts/slides/shots/
+!artifacts/slides/shots/*.png
 !artifacts/web/
 !artifacts/web/*.html
 !artifacts/web/*.json
