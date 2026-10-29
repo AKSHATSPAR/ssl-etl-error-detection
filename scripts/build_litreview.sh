@@ -15,13 +15,14 @@ mkdir -p "$OUT"
 cat > "$OUT/lit_meta.yaml" <<'YAML'
 title: "Literature Review"
 subtitle: "Self-Supervised AI for ETL Error Detection and Root-Cause Localization"
-author: "Akshat"
-date: "September 2026"
+author: "Akshat Sparsh (23BDS0149) and Anuprakash Dubey (23BDS0162)"
+date: "October 2026"
 lang: en-GB
 YAML
 
-# Drop the markdown title block; the metadata supplies the title page.
-tail -n +5 docs/LITERATURE_REVIEW.md > "$OUT/lit_body.md"
+# Drop the markdown title block, eight lines including the byline, since the
+# metadata supplies the title page.
+tail -n +9 docs/LITERATURE_REVIEW.md > "$OUT/lit_body.md"
 
 # ---- Word ----
 pandoc "$OUT/lit_body.md" \

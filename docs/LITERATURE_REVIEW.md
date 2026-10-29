@@ -2,6 +2,10 @@
 
 **Self-Supervised AI for ETL Error Detection and Root-Cause Localization**
 
+**Akshat Sparsh** (23BDS0149) and **Anuprakash Dubey** (23BDS0162)
+
+October 2026
+
 > Every reference below is a real paper, but confirm the venue, year and author
 > list on Google Scholar or DBLP before submitting. A wrong year is an easy thing
 > to be caught on and an easy thing to prevent. Drop anything you cannot verify.

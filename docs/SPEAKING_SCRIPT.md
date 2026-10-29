@@ -2,17 +2,18 @@
 
 For a 15 minute presentation with roughly 5 minutes of questions.
 
-**Akshat** presents the problem, the method, the results and the demo.
-**X** presents the dataset and simulator, slides 5 to 8, about 3 minutes.
+**Akshat Sparsh** (23BDS0149) presents the problem, the method, the results and
+the demo.
 
-Replace **X** throughout with the actual name before printing.
+**Anuprakash Dubey** (23BDS0162) presents the dataset and simulator, slides 5 to
+8, about 3 minutes.
 
 ---
 
 ## Before you start
 
 **Whoever speaks a section has to be able to answer questions on it.** Examiners
-often direct a question at whoever just spoke. X should read Part 3 of
+often direct a question at whoever just spoke. Anuprakash should read Part 3 of
 `docs/EXPLAINER.md` and be comfortable with the three questions listed at the end
 of his section. That is a short read and it is the whole preparation he needs.
 
@@ -21,7 +22,7 @@ apart at the swap, not in the content. Say the handover line exactly as written
 so the other person knows their cue.
 
 **One laptop, one driver.** Akshat drives the slides throughout, including during
-X's section. Swapping the clicker mid-talk wastes ten seconds and looks
+Anuprakash's section. Swapping the clicker mid-talk wastes ten seconds and looks
 disorganised.
 
 ---
@@ -38,7 +39,7 @@ disorganised.
 > something that finds the one step that actually caused it, without needing
 > labelled examples of failures.
 >
-> I'll take the problem and the method, and X will take the dataset we built.
+> I'll take the problem and the method, and Anuprakash will take the dataset we built.
 
 ---
 
@@ -96,14 +97,14 @@ disorganised.
 
 **Handover line:**
 
-> To test any of that, we needed data that doesn't exist. X built it, so I'll let
-> him explain.
+> To test any of that, we needed data that doesn't exist. Anuprakash built
+> that, so I'll hand over to him.
 
 ---
 
 # Slide 5: There was no dataset
 
-**X** *(about 45 seconds)*
+**Anuprakash** *(about 45 seconds)*
 
 > Thanks. So the first problem we hit was that there is no dataset for this.
 >
@@ -123,7 +124,7 @@ disorganised.
 
 # Slide 6: The pipeline
 
-**X** *(about 45 seconds)*
+**Anuprakash** *(about 45 seconds)*
 
 > This is the pipeline we simulated. Nine tasks. Three of them pull data out of
 > source systems, two clean it, two join things together, one aggregates, and one
@@ -146,7 +147,7 @@ disorganised.
 
 # Slide 7: Fifteen ways it breaks
 
-**X** *(about 40 seconds)*
+**Anuprakash** *(about 40 seconds)*
 
 > Fifteen failure types, in six families. Columns disappearing, fields going
 > empty, rows duplicated or lost, units changing, timestamps shifting, keys not
@@ -164,7 +165,7 @@ disorganised.
 
 # Slide 8: Measuring the damage
 
-**X** *(about 50 seconds)*
+**Anuprakash** *(about 50 seconds)*
 
 > One more thing about the labels, because this is the part we're most pleased
 > with.
@@ -192,7 +193,7 @@ disorganised.
 
 **AKSHAT** *(about 60 seconds)*
 
-> Thanks X. So, how do you train something with no labels?
+> Thanks Anuprakash. So, how do you train something with no labels?
 >
 > You hide part of the input and make the model guess what was hidden. The rest
 > of the input is the answer key.
@@ -401,16 +402,16 @@ being caught by it.
 # Question time
 
 **Default rule:** whoever presented the section answers. If it is about the
-dataset, the simulator or the fault types, X takes it. Everything else, Akshat.
+dataset, the simulator or the fault types, Anuprakash takes it. Everything else, Akshat.
 
-**If X gets a question he cannot answer**, the recovery is simply:
+**If Anuprakash gets a question he cannot answer**, the recovery is simply:
 
 > "That's more Akshat's side, he'll have a better answer than me."
 
 That is completely normal in a two-person presentation and reads far better than
 guessing.
 
-## Questions X should be ready for
+## Questions Anuprakash should be ready for
 
 **"Why simulate instead of using real data?"**
 
@@ -448,7 +449,7 @@ Full answers are in `Presentation_and_Demo_Guide.pdf`. The four hardest:
 | Section | Speaker | Time |
 |---|---|---|
 | Slides 1 to 4 | Akshat | 3 min |
-| Slides 5 to 8 | **X** | **3 min** |
+| Slides 5 to 8 | **Anuprakash** | **3 min** |
 | Slides 9 to 12 | Akshat | 4.5 min |
 | Slides 13 to 18 | Akshat | 3.5 min |
 | Demo | Akshat | 2 min |

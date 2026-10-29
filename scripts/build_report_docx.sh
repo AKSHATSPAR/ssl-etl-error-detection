@@ -22,13 +22,14 @@ fi
 cat > "$OUT/metadata.yaml" <<'YAML'
 title: "Self-Supervised Deep Learning for ETL Error Detection and Root-Cause Localization"
 subtitle: "B.Tech Deep Learning Project"
-author: "Akshat"
-date: "September 2026"
+author: "Akshat Sparsh (23BDS0149) and Anuprakash Dubey (23BDS0162)"
+date: "October 2026"
 lang: en-GB
 YAML
 
-# Strip the markdown title block; the metadata block supplies the title page.
-tail -n +5 docs/REPORT.md > "$OUT/body.md"
+# Strip the markdown title block, which is eight lines including the byline.
+# The metadata block supplies the title page, so leaving it in duplicates it.
+tail -n +9 docs/REPORT.md > "$OUT/body.md"
 
 # --metadata-file, not a positional input: passing the YAML as an input file
 # renders it as body text instead of populating the title page.

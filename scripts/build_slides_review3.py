@@ -135,8 +135,11 @@ def build():
           ("Finding the one task that broke a data pipeline, "
            "without any labelled failures", {"size": 15, "color": LIGHT})],
          line=1.3)
-    text(s, 1.0, 6.3, 11.3, 0.5, "B.Tech Deep Learning Project",
-         size=13, color=MID)
+    text(s, 1.0, 5.95, 11.3, 1.1,
+         [("Akshat Sparsh (23BDS0149)  \u00b7  Anuprakash Dubey (23BDS0162)",
+           {"size": 14, "color": WHITE}),
+          ("B.Tech Deep Learning Project  \u00b7  October 2026",
+           {"size": 12.5, "color": MID})], line=1.35)
     notes(s, "Open with the one-line version: pipelines break quietly, every step "
              "downstream looks broken, and this finds the one that actually caused it.")
 

@@ -2,6 +2,10 @@
 
 **B.Tech Deep Learning Project**
 
+**Akshat Sparsh** (23BDS0149) and **Anuprakash Dubey** (23BDS0162)
+
+October 2026
+
 ---
 
 ## Abstract

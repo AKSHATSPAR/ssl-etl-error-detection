@@ -162,7 +162,9 @@ def build() -> None:
     box(s, 1.0, 4.95, 1.5, 0.045, ALERT, shape=MSO_SHAPE.RECTANGLE)
     text(s, 1.0, 5.35, 11.3, 0.9,
          [("B.Tech Deep Learning Project", {"size": 15, "color": WHITE}),
-          ("Akshat", {"size": 14, "color": RGBColor(0xA9, 0xB6, 0xC2)})])
+          ("Akshat Sparsh (23BDS0149)  \u00b7  Anuprakash Dubey (23BDS0162)",
+           {"size": 13.5, "color": RGBColor(0xA9, 0xB6, 0xC2)}),
+          ("October 2026", {"size": 12.5, "color": RGBColor(0x8A, 0x99, 0xA8)})])
     notes(s, "Open with the one-line version: data pipelines break quietly, and "
              "when they break every downstream step looks broken too. This project "
              "finds the one that actually caused it, without needing labelled examples.")

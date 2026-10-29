@@ -22,6 +22,12 @@ cp artifacts/slides/ETL_Project_Viva.pptx          "$DEST/1_SUBMIT_THESE/"
 cp artifacts/slides/ETL_Review3_BW.pptx            "$DEST/1_SUBMIT_THESE/"
 cp artifacts/web/pipeline_demo.html                "$DEST/1_SUBMIT_THESE/"
 cat > "$DEST/1_SUBMIT_THESE/CODE_REPOSITORY.txt" <<'TXT'
+Self-Supervised AI for ETL Error Detection and Root-Cause Localization
+B.Tech Deep Learning Project, October 2026
+
+Akshat Sparsh      23BDS0149
+Anuprakash Dubey   23BDS0162
+
 Source code, tests and all result files:
 
     https://github.com/AKSHATSPAR/ssl-etl-error-detection
@@ -61,6 +67,10 @@ Open these three things and leave them open.
 
        cd /Users/akshat/Downloads/dl_project
        PYTHONPATH=src .venv/bin/python scripts/demo.py --n 2
+
+   The visual demo needs none of this. It is one file and it opens by
+   double-clicking. The terminal command is only for anyone who asks to see
+   it run against the real model.
 
 Then:
 
