@@ -60,7 +60,7 @@ ETL pipeline.
 | 24 | Sundararajan et al., ICML 2017 | Attributing model outputs | Various | Integrated Gradients | Satisfies sensitivity, implementation invariance | Baseline choice matters | Axiomatic feature attribution |
 | 25 | Lundberg and Lee, NeurIPS 2017 | Unified explanation framework | Various | Shapley-value additive attribution | Consistent, model agnostic | Expensive to compute | Standard attribution tool |
 | 26 | Kim et al., AAAI 2022 | Are these benchmarks meaningful? | SMD, SWaT, SMAP, MSL | Re-evaluation under point adjustment | A random score beats published models | Critique, not a method | Showed the headline metric is broken |
-| 27 | Wu and Keogh, TKDE 2022 | Benchmark quality | Common AD benchmarks | Manual inspection of datasets | Triviality, mislabelling, run-to-failure bias | Critique, not a method | Argued for better benchmark design |
+| 27 | Wu and Keogh, TKDE 2023 | Benchmark quality | Common AD benchmarks | Manual inspection of datasets | Triviality, mislabelling, run-to-failure bias | Critique, not a method | Argued for better benchmark design |
 
 ---
 

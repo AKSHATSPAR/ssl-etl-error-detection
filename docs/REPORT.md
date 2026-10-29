@@ -925,7 +925,7 @@ Verify venue and year for each of these before submission.
     VLDB, 2018.
 18. E. Breck et al. Data Validation for Machine Learning. SysML, 2019.
 19. J. Song, Y. He. Auto-Validate: Unsupervised Data Validation Using
-    Data-Domain Patterns. SIGMOD, 2021.
+    Data-Domain Patterns Inferred from Data Lakes. SIGMOD, 2021.
 20. S. Redyuk et al. Automating Data Quality Validation for Dynamic Data
     Ingestion. EDBT, 2021.
 21. L. Wu et al. MicroRCA: Root Cause Localization of Performance Issues in
@@ -941,7 +941,7 @@ Verify venue and year for each of these before submission.
 26. S. Kim et al. Towards a Rigorous Evaluation of Time-series Anomaly
     Detection. AAAI, 2022.
 27. R. Wu, E. Keogh. Current Time Series Anomaly Detection Benchmarks are
-    Potentially Flawed. TKDE, 2022.
+    Flawed and are Creating the Illusion of Progress. TKDE, 2023.
 28. F. Liu, K. Ting, Z. Zhou. Isolation Forest. ICDM, 2008.
 29. M. Breunig et al. LOF: Identifying Density-Based Local Outliers.
     SIGMOD, 2000.
