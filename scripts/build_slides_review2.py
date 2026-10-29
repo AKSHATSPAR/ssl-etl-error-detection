@@ -1,6 +1,6 @@
-"""Build the Review 3 deck, black and white only.
+"""Build the Review 2 deck, black and white only.
 
-    PYTHONPATH=src python scripts/build_slides_review3.py
+    PYTHONPATH=src python scripts/build_slides_review2.py
 
 Monochrome is a real constraint, not a filter applied at the end. With no hue to
 carry meaning, every distinction has to be made with value, weight, size or
@@ -19,7 +19,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
-OUT = Path("artifacts/slides/ETL_Review3_BW.pptx")
+OUT = Path("artifacts/slides/ETL_Review2_BW.pptx")
 BW = Path("artifacts/slides/bw")
 
 BLACK = RGBColor(0x00, 0x00, 0x00)
@@ -131,7 +131,7 @@ def build():
          size=38, bold=True, font=HEAD, color=WHITE, line=1.15)
     box(s, 1.0, 4.25, 1.8, 0.03, WHITE)
     text(s, 1.0, 4.65, 11.3, 1.4,
-         [("Review 3", {"size": 17, "bold": True, "color": WHITE, "font": HEAD}),
+         [("Review 2", {"size": 17, "bold": True, "color": WHITE, "font": HEAD}),
           ("Finding the one task that broke a data pipeline, "
            "without any labelled failures", {"size": 15, "color": LIGHT})],
          line=1.3)
@@ -143,7 +143,38 @@ def build():
     notes(s, "Open with the one-line version: pipelines break quietly, every step "
              "downstream looks broken, and this finds the one that actually caused it.")
 
-    # 2 ------------------------------------------------------------- problem
+
+    # 2 --------------------------------------------------------------- scope
+    s = blank(prs)
+    title(s, "What this review covers",
+          "The three things Review 2 is assessed on, and where each one sits")
+    items = [
+        ("Clear objectives", "Four objectives, each with the criterion used to "
+         "judge it, fixed before any experiment was run.", "Slide 4"),
+        ("Dataset selection and understanding", "Why no existing dataset could "
+         "answer the question, what was built instead, and the four properties "
+         "of the data that drove later decisions.", "Slides 6 and 7"),
+        ("Complete methodology", "The model, how it learns without labels, how "
+         "it separates a cause from its victims, and the protocol used to "
+         "evaluate it.", "Slides 8 to 11"),
+    ]
+    for i, (h, b, where) in enumerate(items):
+        y = 2.45 + i * 1.45
+        box(s, 0.85, y, 11.6, 1.3, PALE if i % 2 == 0 else WHITE,
+            outline=None if i % 2 == 0 else LIGHT)
+        numbered(s, 1.15, y + 0.42, str(i + 1))
+        text(s, 1.8, y + 0.26, 5.2, 0.45, h, size=16, bold=True, font=HEAD,
+             color=BLACK)
+        text(s, 1.8, y + 0.72, 8.2, 0.5, b, size=12.5, color=DARK, line=1.2)
+        text(s, 10.3, y + 0.42, 2.0, 0.4, where, size=13, bold=True,
+             font=HEAD, color=BLACK, align=PP_ALIGN.RIGHT)
+    text(s, 0.85, 6.95, 11.6, 0.5,
+         "Results are included because the work is complete, but they are not "
+         "what this review is marked on.", size=13, color=DARK)
+    notes(s, "Say explicitly that you know what the review is assessed on. It "
+             "costs twenty seconds and it frames everything after it.")
+
+    # 3 ------------------------------------------------------------- problem
     s = blank(prs)
     title(s, "The problem",
           "The job finishes successfully and the data is wrong")
@@ -169,7 +200,7 @@ def build():
     notes(s, "Give the concrete example. A currency convention changes and amounts "
              "become 100x too large. No exception is raised anywhere.")
 
-    # 3 ---------------------------------------------------------- objectives
+    # 4 ---------------------------------------------------------- objectives
     s = blank(prs)
     title(s, "Objectives, and whether they were met",
           "Success criteria were fixed before the experiments ran")
@@ -201,7 +232,7 @@ def build():
     notes(s, "This is the slide a review panel most wants. Criteria were set before "
              "running anything, so success could not be redefined afterwards.")
 
-    # 4 --------------------------------------------------------- why it is hard
+    # 5 --------------------------------------------------------- why it is hard
     s = blank(prs)
     title(s, "Why locating the cause is hard",
           "One fault, and almost every task looks broken")
@@ -218,7 +249,7 @@ def build():
     notes(s, "Every one of those tasks would trip an ordinary alarm. Only one is "
              "the cause. Ranking by severity picks the wrong one.")
 
-    # 5 --------------------------------------------------------- the dataset
+    # 6 --------------------------------------------------------- the dataset
     s = blank(prs)
     title(s, "Dataset: built, because none exists",
           "No public benchmark labels which pipeline task caused a failure")
@@ -241,7 +272,7 @@ def build():
     notes(s, "Expect 'why not real data'. Answer: no public dataset labels the "
              "causing step, and company pipeline data is not released.")
 
-    # 6 ------------------------------------------------- understanding the data
+    # 7 ------------------------------------------------- understanding the data
     s = blank(prs)
     title(s, "What the data looks like",
           "Four properties that drove decisions later in the method")
@@ -269,7 +300,56 @@ def build():
     notes(s, "These are not decorative statistics. Each one forced a specific "
              "design choice, and the slide says which.")
 
-    # 7 ----------------------------------------------------------- method 1
+
+    # 8 ---------------------------------------------------------- the model
+    s = blank(prs)
+    title(s, "Method: the model",
+          "A transformer that attends along time and across the pipeline")
+    # Input, then the repeated block, then the head. Drawn rather than described,
+    # because a methodology review wants to see the structure.
+    stages = [
+        ("Input", "32 runs x 9 tasks\nx 38 measurements", 0.85, 2.0),
+        ("Embed", "project each task\nprofile to 128 dims", 3.05, 2.0),
+        ("Attend\nalong time", "each task sees\nits own history", 5.25, 2.0),
+        ("Attend\nacross the DAG", "each moment sees\nthe other tasks", 7.45, 2.0),
+        ("Predict", "fill in what\nwas hidden", 9.65, 2.0),
+    ]
+    for i, (h, b, x, w) in enumerate(stages):
+        dark = i in (2, 3)
+        box(s, x, 2.6, w, 1.85, BLACK if dark else PALE)
+        text(s, x + 0.18, 2.82, w - 0.36, 0.7, h, size=14, bold=True,
+             font=HEAD, color=WHITE if dark else BLACK, line=1.15)
+        text(s, x + 0.18, 3.62, w - 0.36, 0.7, b, size=11, line=1.2,
+             color=LIGHT if dark else DARK)
+        if i < len(stages) - 1:
+            text(s, x + w + 0.02, 3.3, 0.18, 0.4, "\u203a", size=20,
+                 color=MID, align=PP_ALIGN.CENTER)
+    # Bracket showing the two attention stages repeat.
+    box(s, 5.25, 4.6, 4.2, 0.02, BLACK)
+    text(s, 5.25, 4.7, 4.2, 0.4, "these two repeat, four layers", size=11.5,
+         color=DARK, align=PP_ALIGN.CENTER)
+    for i, (h, b) in enumerate([
+        ("Why two directions",
+         "Attending over all 288 positions at once costs far more and mixes two "
+         "kinds of structure. Time is long, the pipeline is short, and they "
+         "behave differently."),
+        ("Why the DAG is in the model",
+         "Each pair of tasks is labelled parent, child, ancestor, descendant or "
+         "unrelated, and the model learns how much to weight each. Section 8 "
+         "shows it finds the structure even without being told.")]):
+        x = 0.85 + i * 5.95
+        box(s, x, 5.45, 5.6, 1.55, PALE)
+        text(s, x + 0.3, 5.68, 5.0, 0.4, h, size=13.5, bold=True, font=HEAD,
+             color=BLACK)
+        text(s, x + 0.3, 6.12, 5.0, 0.8, b, size=11.5, color=DARK, line=1.2)
+    text(s, 0.85, 7.1, 11.6, 0.35,
+         "1.1 million parameters, trained in 18 minutes on a laptop GPU.",
+         size=12, color=MID)
+    notes(s, "A methodology review wants the structure, not just the idea. The "
+             "two dark boxes are the part that repeats, and they are the reason "
+             "the model can reason about the pipeline at all.")
+
+    # 9 ----------------------------------------------------------- method 2
     s = blank(prs)
     title(s, "Method: learning without labels",
           "Hide part of a run, then predict what was hidden")
@@ -294,7 +374,7 @@ def build():
          size=14, color=DARK)
     notes(s, "The sentence analogy is what lands with non-specialists.")
 
-    # 8 ----------------------------------------------------------- method 2
+    # 10 ---------------------------------------------------------- method 3
     s = blank(prs)
     title(s, "Method: separating the cause from the victims",
           "Ask each task whether it is surprising given what it was fed")
