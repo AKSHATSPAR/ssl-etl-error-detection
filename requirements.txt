@@ -1,21 +1,21 @@
+
+# Config, CLI, reporting
 # Core
-torch>=2.4
+# Simulation / graph
+# Testing
+defusedxml>=0.7
+matplotlib>=3.8
+networkx>=3.2
 numpy>=1.26
 pandas>=2.2
 pyarrow>=15.0
-scipy>=1.11
-scikit-learn>=1.4
-
-# Simulation / graph
-networkx>=3.2
-
-# Config, CLI, reporting
-pyyaml>=6.0
-tqdm>=4.66
-rich>=13.7
-matplotlib>=3.8
-seaborn>=0.13
-
-# Testing
 pytest>=8.0
+python-pptx>=1.0
+pyyaml>=6.0
+rich>=13.7
+scikit-learn>=1.4
+scipy>=1.11
+seaborn>=0.13
 tabulate>=0.9
+torch>=2.4
+tqdm>=4.66

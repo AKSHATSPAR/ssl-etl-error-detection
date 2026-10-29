@@ -81,13 +81,20 @@ frequently sits furthest from the fault.
 
 ### 1.2 Objectives
 
-1. Detect broken pipeline runs without using labels for training.
-2. Identify which task originated the incident, not merely which tasks are
-   affected by it.
-3. Explain the finding in terms an engineer can act on, naming the symptom rather
-   than a feature index.
-4. Evaluate all of the above honestly, on a benchmark that makes the questions
-   answerable.
+Four objectives, each with the criterion used to judge whether it was met. The
+criteria were fixed before the experiments were run, so that success could not be
+redefined after seeing the results.
+
+| # | Objective | How success is judged | Met? |
+|---|---|---|---|
+| 1 | Detect broken pipeline runs using no labels during training | AUPRC above 0.90 on held-out runs, with checkpoints selected on a label-free criterion | Yes, 0.953 |
+| 2 | Identify the task that *originated* an incident, not merely the tasks affected by it | The originating task ranked first in more than half of incidents, and within the top three in more than 90% | Yes, 0.797 and 0.973 |
+| 3 | Explain each finding as a named symptom rather than a feature index | The named symptom family matches the fault's expected family in more than 80% of incidents | Yes, 0.935 |
+| 4 | Evaluate honestly, against baselines, on a benchmark that makes the questions answerable | Chronological splits, contaminated training history, confidence intervals, no point-adjusted F1 as a headline, and at least four comparison methods | Yes, six baselines |
+
+Objective 2 is the one that defines the project. Objectives 1 and 3 are
+achievable by existing methods; locating the origin rather than the symptoms is
+not, for the reason given in the next section.
 
 ### 1.3 Contributions
 
@@ -307,7 +314,52 @@ operational by 10.2, and the healthy baseline stays flat.
 ![**Figure 3.** Response of each symptom family to each fault type, in robust units, measured on the tasks the fault actually reached. The diagonal dominance is what makes attribution scorable: each fault has a known expected symptom. The top row shows healthy runs staying flat.](artifacts/dataset_report/fig4_fault_signature.png)
 
 
-### 4.6 Dataset statistics
+### 4.6 Understanding the data before modelling
+
+Four properties of this dataset drove design decisions elsewhere in the project,
+so they are worth stating before the method rather than after it.
+
+**The classes are heavily imbalanced.** 92.6% of runs are healthy and 7.4% carry
+an incident. A model that answered "healthy" to everything would be 92.6%
+accurate and completely useless, which is why accuracy is never reported and
+AUPRC is the headline detection metric instead.
+
+**The imbalance is deliberately uneven across splits.** Training history carries
+3.0% incidents, validation 13.2% and test 14.6%. Real pipeline history is lightly
+contaminated with failures nobody noticed, and the training split reproduces
+that. The method has to tolerate it rather than assume a clean training set, and
+Section 8 tests whether it does.
+
+**The features are heavily skewed.** 22 of the 38 features have an absolute skew
+above 2, and the worst reaches 145. Row counts, runtimes and staleness are all
+long-tailed by nature. This is why heavy-tailed quantities are stored as `log1p`,
+why normalisation uses median and interquartile range instead of mean and
+standard deviation, and why the per-task calibration in Section 5.3 uses
+percentile rank rather than a z-score. An earlier version used z-scores and
+measurably performed worse.
+
+**Seventeen of the 38 features never vary while the pipeline is healthy.** A
+schema-change flag is always zero, a column count never moves, a type-mismatch
+rate is exactly zero. Their interquartile range is therefore zero, and dividing
+by it is undefined. Treating them as constants and giving them a scale of 1 was
+the first approach, and it was wrong: a schema flag flipping would then register
+as a one-sigma event, weaker than ordinary volume noise. They fall back to
+standard deviation instead, so that a departure from a never-varying feature
+reads as what it is.
+
+**Normal is not stationary.** Volume at the busiest run is 9.6 times the
+quietest, from 311 rows to 2984, driven by the daily cycle, the weekly cycle,
+growth and campaigns. None of that is a fault. Any method that thresholds row
+counts directly will fire constantly, which is what happens to the rolling
+z-score baseline in Section 7.
+
+The 38 features group into eight families: operational (8), schema (4),
+completeness (5), metric distribution (8), numeric distribution (3), categorical
+distribution (4), temporal (5) and integrity (1). These families are not just
+bookkeeping. They are the vocabulary the explanation layer speaks in, and
+Section 7.5 scores whether the right family is named.
+
+### 4.7 Dataset statistics
 
 | Property | Value |
 |---|---|
