@@ -1,12 +1,12 @@
-"""Regenerate the key figures in black and white for the monochrome deck.
+"""Regenerate the key figures in the deck's palette: blue, black and white.
 
     PYTHONPATH=src python scripts/make_bw_figures.py
 
-A greyscale deck with colour figures in it looks like a mistake. These are not
-desaturated copies: desaturating a colour figure collapses distinct hues into
-near-identical greys. They are redrawn so that difference is carried by value,
-hatching and line style, which survive both a monochrome printer and a bad
-projector.
+These are redrawn rather than recoloured. Difference is carried by value,
+hatching and line style first, with blue reserved for the one thing each figure
+is about, so the figures still read correctly if anyone prints them in
+greyscale. The blue was picked to sit at 29/255 in luminance, dark enough to
+contrast on white and light enough to stay distinct from black when printed.
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from etlguard.data.dataset import ETLData
 
 OUT = Path("artifacts/slides/bw")
+BLUE = "#1A5FA8"
+BLUE_SOFT = "#7FA8D0"
 plt.rcParams.update({
     "figure.dpi": 150, "font.size": 9, "font.family": "serif",
     "axes.grid": True, "grid.alpha": 0.25, "grid.color": "0.7",
@@ -44,11 +46,11 @@ def fig_propagation(d: ETLData) -> None:
     dev = (np.abs(d.X[lo:hi] - d.X_cf[lo:hi]) / d.scaler.scale).max(axis=2).T
 
     fig, ax = plt.subplots(figsize=(8.6, 3.0))
-    im = ax.imshow(dev, aspect="auto", cmap="Greys", origin="lower",
+    im = ax.imshow(dev, aspect="auto", cmap="Blues", origin="lower",
                    extent=[lo, hi, -0.5, d.n_nodes - 0.5], vmin=0, vmax=10)
     ax.set_yticks(range(d.n_nodes))
     ax.set_yticklabels([n.replace("_", " ") for n in d.node_names], fontsize=8)
-    ax.axvline(t0, color="black", ls="--", lw=1.2)
+    ax.axvline(t0, color=BLUE, ls="--", lw=1.6)
     ax.set_xlabel("pipeline run")
     ax.set_title(f"One fault at '{d.node_names[node].replace('_',' ')}', "
                  f"{int(d.y_anom[t0].sum())} of {d.n_nodes} tasks move", fontsize=10)
@@ -71,10 +73,12 @@ def fig_methods() -> None:
         names = [n for n, _ in data]; vals = [v for _, v in data]
         for i, (n, v) in enumerate(zip(names, vals)):
             mine = n == "Ours"
-            ax.barh(i, v, color="black" if mine else "white",
-                    edgecolor="black", linewidth=1.1,
+            ax.barh(i, v, color=BLUE if mine else "white",
+                    edgecolor=BLUE if mine else "black", linewidth=1.1,
                     hatch="" if mine else "///")
-            ax.text(v + .015, i, f"{v:.3f}", va="center", fontsize=8)
+            ax.text(v + .015, i, f"{v:.3f}", va="center", fontsize=8,
+                    color=BLUE if mine else "0.2",
+                    fontweight="bold" if mine else "normal")
         ax.set_yticks(range(len(names)))
         ax.set_yticklabels(names, fontsize=8.5,
                            fontweight=["normal", "bold"][0])
@@ -90,9 +94,10 @@ def fig_scoring() -> None:
             ("Both", .797, True)]
     fig, ax = plt.subplots(figsize=(7.6, 2.8))
     for i, (n, v, hl) in enumerate(rows):
-        ax.barh(i, v, color="black" if hl else "0.78",
-                edgecolor="black", linewidth=1.1)
+        ax.barh(i, v, color=BLUE if hl else "0.80",
+                edgecolor=BLUE if hl else "0.45", linewidth=1.1)
         ax.text(v + .012, i, f"{v:.3f}", va="center", fontsize=9,
+                color=BLUE if hl else "0.25",
                 fontweight="bold" if hl else "normal")
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([n for n, _, _ in rows], fontsize=9.5)
@@ -108,7 +113,7 @@ def fig_attention(d: ETLData) -> None:
         return
     roll = np.array(json.load(f.open())["attention_rollout_mean"])
     fig, ax = plt.subplots(figsize=(5.0, 4.2))
-    im = ax.imshow(roll, cmap="Greys")
+    im = ax.imshow(roll, cmap="Blues")
     ax.set_xticks(range(d.n_nodes))
     ax.set_xticklabels([n.replace("_", " ") for n in d.node_names],
                        rotation=45, ha="right", fontsize=7)

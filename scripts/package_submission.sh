@@ -19,7 +19,7 @@ cp artifacts/report/ETL_Error_Detection_Report.docx "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.pdf          "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.docx         "$DEST/1_SUBMIT_THESE/"
 cp artifacts/slides/ETL_Project_Viva.pptx          "$DEST/1_SUBMIT_THESE/"
-cp artifacts/slides/ETL_Review2_BW.pptx            "$DEST/1_SUBMIT_THESE/"
+cp artifacts/slides/ETL_Review2_Deck.pptx            "$DEST/1_SUBMIT_THESE/"
 cp artifacts/web/pipeline_demo.html                "$DEST/1_SUBMIT_THESE/"
 cat > "$DEST/1_SUBMIT_THESE/CODE_REPOSITORY.txt" <<'TXT'
 Self-Supervised AI for ETL Error Detection and Root-Cause Localization
@@ -47,7 +47,7 @@ cp artifacts/report/Speaking_Script.pdf               "$DEST/2_YOUR_PREPARATION/
 # ---- 3. Everything needed in the room ----
 cp artifacts/web/pipeline_demo.html "$DEST/3_ON_THE_DAY/"
 cp artifacts/slides/ETL_Project_Viva.pptx "$DEST/3_ON_THE_DAY/"
-cp artifacts/slides/ETL_Review2_BW.pptx "$DEST/3_ON_THE_DAY/"
+cp artifacts/slides/ETL_Review2_Deck.pptx "$DEST/3_ON_THE_DAY/"
 cp artifacts/slides/bw/*.png "$DEST/3_ON_THE_DAY/figures/"
 cp artifacts/dataset_report/fig*.png artifacts/results/fig*.png "$DEST/3_ON_THE_DAY/figures/"
 cat > "$DEST/3_ON_THE_DAY/SETUP.txt" <<'TXT'

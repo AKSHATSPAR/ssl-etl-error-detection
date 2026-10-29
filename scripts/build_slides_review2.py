@@ -1,12 +1,11 @@
-"""Build the Review 2 deck, black and white only.
+"""Build the Review 2 deck: blue, black and white.
 
     PYTHONPATH=src python scripts/build_slides_review2.py
 
-Monochrome is a real constraint, not a filter applied at the end. With no hue to
-carry meaning, every distinction has to be made with value, weight, size or
-rule. So emphasis here is a solid black panel with reversed text, de-emphasis is
-a light grey fill, and the figures are redrawn rather than desaturated, because
-desaturating a colour chart collapses distinct hues into near-identical greys.
+One colour, used sparingly. Blue marks the thing each slide is actually about
+and nothing else, so it keeps its meaning; everywhere else the work is done by
+value, weight and size. The figures are redrawn to the same rule rather than
+recoloured, so they still read correctly printed in greyscale.
 
 The one deliberate exception is the screenshot of the running system. The rule
 covers type and drawn illustration; a screenshot is a photograph of something
@@ -23,7 +22,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
-OUT = Path("artifacts/slides/ETL_Review2_BW.pptx")
+OUT = Path("artifacts/slides/ETL_Review2_Deck.pptx")
 BW = Path("artifacts/slides/bw")
 
 BLACK = RGBColor(0x00, 0x00, 0x00)
@@ -33,6 +32,11 @@ MID   = RGBColor(0x75, 0x75, 0x75)
 LIGHT = RGBColor(0xD9, 0xD9, 0xD9)
 PALE  = RGBColor(0xF2, 0xF2, 0xF2)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+# 6.5:1 on white, and 29/255 in luminance, so it survives a greyscale printer as
+# a value clearly between black and the light fill.
+BLUE  = RGBColor(0x1A, 0x5F, 0xA8)
+BLUE_D = RGBColor(0x12, 0x3E, 0x6B)
+BLUE_P = RGBColor(0xE8, 0xF0, 0xF8)
 
 HEAD = "Cambria"
 BODY = "Calibri"
@@ -99,7 +103,7 @@ def title(sl, t, sub=None, dark=False):
         text(sl, 0.85, 1.45, 11.6, 0.6, sub, size=14.5,
              color=LIGHT if dark else DARK, font=BODY)
     # A single hairline rule instead of a colour accent, since there is no colour.
-    box(sl, 0.85, 2.02, 11.6, 0.012, LIGHT if dark else RGBColor(0xC0, 0xC0, 0xC0))
+    box(sl, 0.85, 2.02, 11.6, 0.012, LIGHT if dark else BLUE)
 
 
 def pic(sl, name, x, y, w=None, h=None):
@@ -114,7 +118,7 @@ def notes(sl, s):
 
 
 def numbered(sl, x, y, n, dark=False):
-    c = box(sl, x, y, 0.42, 0.42, WHITE if dark else BLACK,
+    c = box(sl, x, y, 0.42, 0.42, WHITE if dark else BLUE,
             shape=MSO_SHAPE.OVAL)
     tf = c.text_frame
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -122,7 +126,7 @@ def numbered(sl, x, y, n, dark=False):
     r = tf.paragraphs[0].add_run()
     r.text = str(n)
     r.font.size = Pt(15); r.font.bold = True; r.font.name = HEAD
-    r.font.color.rgb = BLACK if dark else WHITE
+    r.font.color.rgb = BLUE_D if dark else WHITE
 
 
 def build():
@@ -133,9 +137,9 @@ def build():
     text(s, 1.0, 2.3, 11.3, 1.7,
          "Self-Supervised AI for ETL Error Detection\nand Root-Cause Localization",
          size=38, bold=True, font=HEAD, color=WHITE, line=1.15)
-    box(s, 1.0, 4.25, 1.8, 0.03, WHITE)
+    box(s, 1.0, 4.25, 1.8, 0.045, BLUE)
     text(s, 1.0, 4.65, 11.3, 1.4,
-         [("Review 2", {"size": 17, "bold": True, "color": WHITE, "font": HEAD}),
+         [("Review 2", {"size": 17, "bold": True, "color": BLUE, "font": HEAD}),
           ("Finding the one task that broke a data pipeline, "
            "without any labelled failures", {"size": 15, "color": LIGHT})],
          line=1.3)
@@ -229,7 +233,7 @@ def build():
         text(s, 1.55, y + 0.26, 4.6, 0.5, obj, size=13, color=INK)
         text(s, 6.3, y + 0.26, 3.6, 0.5, crit, size=12, color=DARK)
         text(s, 10.2, y + 0.2, 2.0, 0.5, res, size=15, bold=True, font=HEAD,
-             color=BLACK)
+             color=BLUE)
     text(s, 0.85, 6.9, 11.6, 0.5,
          "Objective 2 is the one that defines the project. The other three are "
          "achievable by existing methods.", size=13, color=DARK)
@@ -271,7 +275,7 @@ def build():
                                 ("15", "fault types"), ("273", "labelled incidents")]):
         x = 7.6 + (i % 2) * 2.5
         y = 2.4 + (i // 2) * 2.0
-        text(s, x, y, 2.2, 1.0, v, size=44, bold=True, font=HEAD, color=BLACK)
+        text(s, x, y, 2.2, 1.0, v, size=44, bold=True, font=HEAD, color=BLUE)
         text(s, x, y + 1.05, 2.2, 0.5, l, size=12.5, color=MID)
     notes(s, "Expect 'why not real data'. Answer: no public dataset labels the "
              "causing step, and company pipeline data is not released.")
@@ -299,7 +303,7 @@ def build():
         y = 2.45 + (i // 2) * 2.2
         box(s, x, y, 5.6, 1.95, PALE)
         text(s, x + 0.3, y + 0.28, 5.0, 0.45, h, size=14.5, bold=True,
-             font=HEAD, color=BLACK)
+             font=HEAD, color=BLUE_D)
         text(s, x + 0.3, y + 0.82, 5.0, 1.0, b, size=12.5, color=DARK, line=1.22)
     notes(s, "These are not decorative statistics. Each one forced a specific "
              "design choice, and the slide says which.")
@@ -320,7 +324,7 @@ def build():
     ]
     for i, (h, b, x, w) in enumerate(stages):
         dark = i in (2, 3)
-        box(s, x, 2.6, w, 1.85, BLACK if dark else PALE)
+        box(s, x, 2.6, w, 1.85, BLUE if dark else PALE)
         text(s, x + 0.18, 2.82, w - 0.36, 0.7, h, size=14, bold=True,
              font=HEAD, color=WHITE if dark else BLACK, line=1.15)
         text(s, x + 0.18, 3.62, w - 0.36, 0.7, b, size=11, line=1.2,
@@ -329,7 +333,7 @@ def build():
             text(s, x + w + 0.02, 3.3, 0.18, 0.4, "\u203a", size=20,
                  color=MID, align=PP_ALIGN.CENTER)
     # Bracket showing the two attention stages repeat.
-    box(s, 5.25, 4.6, 4.2, 0.02, BLACK)
+    box(s, 5.25, 4.6, 4.2, 0.02, BLUE)
     text(s, 5.25, 4.7, 4.2, 0.4, "these two repeat, four layers", size=11.5,
          color=DARK, align=PP_ALIGN.CENTER)
     for i, (h, b) in enumerate([
@@ -559,7 +563,7 @@ def build():
         y = 2.45 + (i // 2) * 2.2
         box(s, x, y, 5.6, 1.95, PALE)
         text(s, x + 0.3, y + 0.28, 5.0, 0.45, h, size=14.5, bold=True,
-             font=HEAD, color=BLACK)
+             font=HEAD, color=BLUE_D)
         text(s, x + 0.3, y + 0.82, 5.0, 1.0, b, size=12.5, color=DARK, line=1.22)
     notes(s, "Volunteering limitations is stronger than conceding them. Each has a "
              "specific reason and, where relevant, a named fix.")
@@ -615,7 +619,7 @@ def build():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(OUT))
-    print(f"wrote {OUT} ({len(prs.slides._sldIdLst)} slides, black and white)")
+    print(f"wrote {OUT} ({len(prs.slides._sldIdLst)} slides, blue/black/white)")
 
 
 if __name__ == "__main__":
