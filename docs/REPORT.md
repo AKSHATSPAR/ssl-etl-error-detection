@@ -1,4 +1,4 @@
-# Self-Supervised Deep Learning for ETL Error Detection and Root-Cause Localization
+# Self-Supervised AI for ETL Error Detection and Root-Cause Localization
 
 **B.Tech Deep Learning Project**
 

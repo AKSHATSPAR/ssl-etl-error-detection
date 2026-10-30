@@ -20,7 +20,7 @@ if [ ! -f "$OUT/reference.docx" ]; then
 fi
 
 cat > "$OUT/metadata.yaml" <<'YAML'
-title: "Self-Supervised Deep Learning for ETL Error Detection and Root-Cause Localization"
+title: "Self-Supervised AI for ETL Error Detection and Root-Cause Localization"
 subtitle: "B.Tech Deep Learning Project"
 author: "Akshat Sparsh (23BDS0149) and Anuprakash Dubey (23BDS0162)"
 date: "October 2026"

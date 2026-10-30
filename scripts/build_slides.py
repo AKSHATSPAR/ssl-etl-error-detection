@@ -152,13 +152,13 @@ def build() -> None:
 
     # 1 ---------------------------------------------------------------- title
     s = blank(prs, dark=True)
-    text(s, 1.0, 2.15, 11.3, 1.6,
-         "Catching Silent Failures in Data Pipelines",
-         size=42, bold=True, font=HEAD, color=WHITE)
-    text(s, 1.0, 3.75, 11.3, 0.9,
-         "Self-supervised deep learning that finds a broken pipeline run, "
-         "and points at the task that broke it",
-         size=17, color=RGBColor(0xA9, 0xB6, 0xC2), line=1.25)
+    text(s, 1.0, 1.95, 11.3, 1.8,
+         "Self-Supervised AI for ETL Error Detection\nand Root-Cause Localization",
+         size=38, bold=True, font=HEAD, color=WHITE, line=1.15)
+    text(s, 1.0, 3.85, 11.3, 0.9,
+         "Catching silent failures in data pipelines, and pointing at the task "
+         "that caused them",
+         size=16.5, color=RGBColor(0xA9, 0xB6, 0xC2), line=1.25)
     box(s, 1.0, 4.95, 1.5, 0.045, ALERT, shape=MSO_SHAPE.RECTANGLE)
     text(s, 1.0, 5.35, 11.3, 0.9,
          [("B.Tech Deep Learning Project", {"size": 15, "color": WHITE}),
