@@ -32,6 +32,11 @@ artifacts/**
 !artifacts/web/
 !artifacts/web/*.html
 !artifacts/web/*.json
+# The filled VIT report and the signatures it carries are deliberately absent.
+# The declaration page holds both candidates' real signatures, which do not
+# belong in version control. scripts/report_fill/build.py rebuilds the report,
+# and skips the signatures when they are not there.
+artifacts/signatures/
 # reference.docx is a pandoc style template the build script regenerates.
 artifacts/report/reference.docx
 !artifacts/results/

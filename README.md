@@ -190,6 +190,12 @@ src/etlguard/
                 run_eval.py       the full comparison
 scripts/        validate_simulator.py  fault to feature response matrix
                 dataset_report.py      descriptive figures
+                make_report_diagrams.py  the five design diagrams
+                package_submission.sh  assemble the hand-in folder
+  report_fill/  content.py        every word of the report, as blocks
+                build.py          fills the VIT template in place
+                measure_pages.py  reads real page numbers back off the PDF
+                prepare_signatures.py  ink out of a photographed signature
 tests/          contracts, healthy baselines, fault propagation, counterfactuals
 docs/           PROJECT_PLAN.md, LITERATURE_REVIEW.md
 ```
@@ -314,7 +320,8 @@ Other results:
 
 | Document | What it is |
 |---|---|
-| [Report](artifacts/report/ETL_Error_Detection_Report.docx) | The full write-up, 7600 words, 8 figures, 11 tables, 29 references |
+| Project report, VIT template | The report as handed in, 43 pages, 11,300 words, 10 figures, 17 tables, 30 references. Rebuild it with `scripts/report_fill/build.py`; it is not kept here because the declaration page carries real signatures |
+| [Background write-up](artifacts/report/ETL_Error_Detection_Report.docx) | The longer write-up the template report was drawn from, 7600 words, 8 figures, 11 tables, 29 references |
 | [Literature review](artifacts/report/Literature_Review.pdf) | 27 papers as a review matrix, themes, and gap analysis |
 | [Slides](artifacts/slides/ETL_Project_Viva.pptx) | 18 slides with speaker notes on every one |
 | [Visual demo](artifacts/web/pipeline_demo.html) | One HTML file, opens by double-clicking, no server or internet |

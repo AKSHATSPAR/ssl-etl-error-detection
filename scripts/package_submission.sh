@@ -18,6 +18,7 @@ mkdir -p "$DEST/1_SUBMIT_THESE" "$DEST/2_YOUR_PREPARATION" \
 cp artifacts/report/ETL_Error_Detection_Report.docx "$DEST/1_SUBMIT_THESE/"
 # The VIT template version, which is the one actually handed in.
 cp artifacts/report_vit/Project_Report_Akshat_Anuprakash.docx "$DEST/1_SUBMIT_THESE/"
+cp artifacts/report_vit/Project_Report_Akshat_Anuprakash.pdf  "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.pdf          "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.docx         "$DEST/1_SUBMIT_THESE/"
 cp artifacts/slides/ETL_Project_Viva.pptx          "$DEST/1_SUBMIT_THESE/"
@@ -25,7 +26,7 @@ cp artifacts/slides/ETL_Review2_Deck.pptx            "$DEST/1_SUBMIT_THESE/"
 cp artifacts/web/pipeline_demo.html                "$DEST/1_SUBMIT_THESE/"
 cat > "$DEST/1_SUBMIT_THESE/CODE_REPOSITORY.txt" <<'TXT'
 Self-Supervised AI for ETL Error Detection and Root-Cause Localization
-B.Tech Deep Learning Project, October 2026
+B.Tech Deep Learning Project, November 2026
 
 Akshat Sparsh      23BDS0149
 Anuprakash Dubey   23BDS0162
