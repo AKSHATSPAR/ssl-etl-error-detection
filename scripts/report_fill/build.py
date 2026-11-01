@@ -575,6 +575,13 @@ def write_body(doc):
             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=2, line=1.5)
     add_par(doc, "SAMPLE CODE", size=16, bold=True,
             align=WD_ALIGN_PARAGRAPH.CENTER, space_after=10, line=1.5)
+    add_par(doc,
+            "What follows are extracts, chosen because they carry the ideas the "
+            "report argues for. The complete source, the test suite and the "
+            "scripts that regenerate every number and figure in this report are "
+            f"published at {C.REPO_URL}. Each listing below names the file it "
+            "was taken from, relative to the root of that repository.",
+            size=11, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=10)
     for title, path, note in APPENDIX_FILES:
         add_par(doc, title, size=12.5, bold=True, space_before=10, space_after=3)
         add_par(doc, note, size=11, italic=True, space_after=5)

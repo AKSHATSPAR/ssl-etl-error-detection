@@ -24,6 +24,7 @@ PROGRAMME_SHORT = "Computer Science and Engineering (Data Science)"
 COURSE = "Deep Learning Course Project"
 STUDENTS = [("23BDS0149", "AKSHAT SPARSH"), ("23BDS0162", "ANUPRAKASH DUBEY")]
 DATE = "01 November 2026"
+REPO_URL = "https://github.com/AKSHATSPAR/ssl-etl-error-detection"
 # Scanned signatures for the declaration, keyed by registration number. These
 # are personal, so they stay out of version control; prepare_signatures.py
 # builds them from photos dropped in artifacts/signatures/raw.
@@ -453,7 +454,8 @@ CHAPTERS += [
    ["matplotlib", "3.11", "All figures"],
    ["pytest", "9.1", "Automated test suite"],
    ["HTML, CSS, JavaScript", "No framework", "Self-contained web demonstration"],
-   ["Git and GitHub", "Latest", "Version control"]]),
+   ["Git and GitHub", "Latest",
+    "Version control, and where the source is published"]]),
 ("pb",),
 
 # ===================== CHAPTER 4 =====================
