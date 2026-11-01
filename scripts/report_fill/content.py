@@ -18,7 +18,10 @@ builder can apply the template's formatting without guessing.
 TITLE = "Self-Supervised AI for ETL Error Detection and Root-Cause Localization"
 GUIDE = "Dr. Abdul Gaffar H"
 GUIDE_DESIG = "Associate Professor Senior"
-PROGRAMME = "Computer Science and Engineering"
+PROGRAMME = "Computer Science and Engineering with Specialization in Data Science"
+# Shorter form, for the cover where the full name wraps badly.
+PROGRAMME_SHORT = "Computer Science and Engineering (Data Science)"
+COURSE = "Deep Learning Course Project"
 STUDENTS = [("23BDS0149", "AKSHAT SPARSH"), ("23BDS0162", "ANUPRAKASH DUBEY")]
 MONTH = "November 2026"
 
@@ -1201,36 +1204,36 @@ SYMBOLS = [
 ]
 
 FIGURES = [
- ("4.1", "System architecture, five layers with one-directional flow"),
- ("4.2", "Level-1 data flow diagram"),
- ("4.3", "Use case diagram"),
- ("4.4", "Class diagram of the principal components"),
- ("4.5", "Sequence diagram for one diagnosis"),
- ("6.1", "The web demonstration diagnosing a single pipeline run"),
- ("7.1", "Detection and localization across all seven methods"),
- ("7.2", "The same model under four scoring rules"),
- ("7.3", "Structural attention averaged over incidents"),
- ("7.4", "Localization accuracy by fault type and by severity quartile"),
+ ("4.1", "System architecture, five layers with one-directional flow", "14"),
+ ("4.2", "Level-1 data flow diagram", "15"),
+ ("4.3", "Use case diagram", "16"),
+ ("4.4", "Class diagram of the principal components", "17"),
+ ("4.5", "Sequence diagram for one diagnosis", "18"),
+ ("6.1", "The web demonstration diagnosing a single pipeline run", "26"),
+ ("7.1", "Detection and localization across all seven methods", "29"),
+ ("7.2", "The same model under four scoring rules", "30"),
+ ("7.3", "Structural attention averaged over incidents", "35"),
+ ("7.4", "Localization accuracy by fault type and by severity quartile", "36"),
 ]
 
 TABLES = [
- ("2.1", "Objectives and their success criteria"),
- ("2.2", "Project plan and phases"),
- ("3.1", "Functional requirements"),
- ("3.2", "Non-functional requirements"),
- ("3.3", "Hardware used"),
- ("3.4", "Software stack"),
- ("5.1", "Fault taxonomy, fifteen types across six families"),
- ("5.2", "The eight symptom families"),
- ("5.3", "Test coverage by category"),
- ("7.1", "Comparison against six baselines, test split"),
- ("7.2", "Four scoring rules on the same trained model"),
- ("7.3", "Effect of per-task calibration on each method"),
- ("7.4", "Localization accuracy by depth of the originating task"),
- ("7.5", "Ablation results against a noise floor"),
- ("7.6", "Attribution accuracy against the known symptom family"),
- ("7.7", "The two fault types the method handles poorly"),
- ("7.8", "Computational cost"),
+ ("2.1", "Objectives and their success criteria", "7"),
+ ("2.2", "Project plan and phases", "9"),
+ ("3.1", "Functional requirements", "10"),
+ ("3.2", "Non-functional requirements", "10"),
+ ("3.3", "Hardware used", "13"),
+ ("3.4", "Software stack", "13"),
+ ("5.1", "Fault taxonomy, fifteen types across six families", "20"),
+ ("5.2", "The eight symptom families", "22"),
+ ("5.3", "Test coverage by category", "24"),
+ ("7.1", "Comparison against six baselines, test split", "28"),
+ ("7.2", "Four scoring rules on the same trained model", "30"),
+ ("7.3", "Effect of per-task calibration on each method", "31"),
+ ("7.4", "Localization accuracy by depth of the originating task", "32"),
+ ("7.5", "Ablation results against a noise floor", "33"),
+ ("7.6", "Attribution accuracy against the known symptom family", "35"),
+ ("7.7", "The two fault types the method handles poorly", "36"),
+ ("7.8", "Computational cost", "37"),
 ]
 
 TOC = [

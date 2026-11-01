@@ -54,8 +54,15 @@ def drop(par):
 
 
 def find(doc, needle, start=0):
+    """Locate a paragraph by its text, ignoring how it is spaced.
+
+    The template pads several paragraphs with runs of consecutive spaces, so a
+    plain substring search misses them and the placeholder survives into the
+    finished report. Collapsing whitespace on both sides avoids that.
+    """
+    want = " ".join(needle.lower().split())
     for i, p in enumerate(doc.paragraphs):
-        if i >= start and needle.lower() in p.text.lower():
+        if i >= start and want in " ".join(p.text.lower().split()):
             return i
     return -1
 
@@ -117,6 +124,17 @@ def page_break(doc):
 
 # ------------------------------------------------------------ front matter --
 def fill_front(doc):
+    # The cover names the course, not the project-work code: this is submitted
+    # for the Deep Learning course rather than as Project-I.
+    i = find(doc, "BCSE497J")
+    if i >= 0:
+        set_text(doc.paragraphs[i], C.COURSE, size=14, bold=True)
+        doc.paragraphs[i].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    i = find(doc, "B.Tech.")
+    if i >= 0 and "B.Tech." == doc.paragraphs[i].text.strip():
+        set_text(doc.paragraphs[i], "B.Tech.", size=14, bold=True)
+        doc.paragraphs[i].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
     # Title on the cover.
     i = find(doc, "<Title of the Project>")
     set_text(doc.paragraphs[i], C.TITLE.upper(), size=18, bold=True)
@@ -125,7 +143,7 @@ def fill_front(doc):
 
     j = find(doc, "Programme")
     if j >= 0:
-        set_text(doc.paragraphs[j], C.PROGRAMME, size=14, bold=True)
+        set_text(doc.paragraphs[j], C.PROGRAMME_SHORT, size=14, bold=True)
         doc.paragraphs[j].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     k = find(doc, "mention names of team members")
@@ -239,9 +257,9 @@ def fill_figures_tables(doc):
     t = doc.tables[3]
     while len(t.rows) > 1:
         t.rows[-1]._element.getparent().remove(t.rows[-1]._element)
-    for no, cap in C.FIGURES:
+    for no, cap, page in C.FIGURES:
         row = t.add_row()
-        for ci, val in enumerate((no, cap, "")):
+        for ci, val in enumerate((no, cap, page)):
             cell = row.cells[ci]
             cell.text = ""
             p = cell.paragraphs[0]
@@ -249,14 +267,20 @@ def fill_figures_tables(doc):
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             style_run(p.add_run(val), size=10)
 
+    # A note the template leaves for whoever fills it in, not report content.
+    i = find(doc, "caption should come below the figure")
+    if i >= 0:
+        drop(doc.paragraphs[i])
+
     # The template's list of tables is loose paragraphs, not a table.
     i = find(doc, "Table No.\tTitle")
     if i >= 0:
-        set_text(doc.paragraphs[i], "Table No.\tTitle", size=11, bold=True)
+        set_text(doc.paragraphs[i], "Table No.\tTitle\tPage No.", size=11, bold=True)
     i = find(doc, "2.1\tTable caption")
     if i >= 0:
         par = doc.paragraphs[i]
-        set_text(par, "\n".join(f"{no}\t{cap}" for no, cap in C.TABLES), size=10)
+        set_text(par, "\n".join(f"{no}\t{cap}\t{page}"
+                                for no, cap, page in C.TABLES), size=10)
 
 
 def fill_abbreviations(doc):
