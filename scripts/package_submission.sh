@@ -36,8 +36,7 @@ Source code, tests and all result files:
 
     https://github.com/AKSHATSPAR/ssl-etl-error-detection
 
-The repository is private. Either add the examiner as a collaborator or make it
-public before submission, otherwise the link will not open for them.
+The repository is public, so the link opens for anyone with no account needed.
 
 Everything in this folder was generated from that repository. To reproduce any
 number, see Appendix A of the report.
