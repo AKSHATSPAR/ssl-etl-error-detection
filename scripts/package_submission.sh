@@ -15,8 +15,9 @@ mkdir -p "$DEST/1_SUBMIT_THESE" "$DEST/2_YOUR_PREPARATION" \
          "$DEST/3_ON_THE_DAY/figures" "$DEST/4_DATA_SAMPLES"
 
 # ---- 1. What gets handed in ----
-cp artifacts/report/ETL_Error_Detection_Report.docx "$DEST/1_SUBMIT_THESE/"
-# The VIT template version, which is the one actually handed in.
+# The filled VIT template is the report, and the only one handed in. The
+# longer write-up it was drawn from is preparation material; keeping it here
+# too would look like two reports for one project.
 cp artifacts/report_vit/Project_Report_Akshat_Anuprakash.docx "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report_vit/Project_Report_Akshat_Anuprakash.pdf  "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.pdf          "$DEST/1_SUBMIT_THESE/"
@@ -43,6 +44,7 @@ number, see Appendix A of the report.
 TXT
 
 # ---- 2. Preparation, not for submission ----
+cp artifacts/report/ETL_Error_Detection_Report.docx   "$DEST/2_YOUR_PREPARATION/"
 cp artifacts/report/Complete_Explainer.pdf            "$DEST/2_YOUR_PREPARATION/"
 cp artifacts/report/Presentation_and_Demo_Guide.pdf   "$DEST/2_YOUR_PREPARATION/"
 cp artifacts/report/Speaking_Script.pdf               "$DEST/2_YOUR_PREPARATION/"

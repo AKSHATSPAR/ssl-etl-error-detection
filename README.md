@@ -321,7 +321,6 @@ Other results:
 | Document | What it is |
 |---|---|
 | Project report, VIT template | The report as handed in, 43 pages, 11,300 words, 10 figures, 17 tables, 30 references. Rebuild it with `scripts/report_fill/build.py`; it is not kept here because the declaration page carries real signatures |
-| [Background write-up](artifacts/report/ETL_Error_Detection_Report.docx) | The longer write-up the template report was drawn from, 7600 words, 8 figures, 11 tables, 29 references |
 | [Literature review](artifacts/report/Literature_Review.pdf) | 27 papers as a review matrix, themes, and gap analysis |
 | [Slides](artifacts/slides/ETL_Project_Viva.pptx) | 18 slides with speaker notes on every one |
 | [Visual demo](artifacts/web/pipeline_demo.html) | One HTML file, opens by double-clicking, no server or internet |
@@ -331,6 +330,7 @@ Other results:
 
 | Document | What it is |
 |---|---|
+| [Background write-up](artifacts/report/ETL_Error_Detection_Report.docx) | The longer write-up the report was drawn from, 7600 words, 8 figures, 11 tables, 29 references |
 | [Complete explainer](artifacts/report/Complete_Explainer.pdf) | Every concept, decision, result and mistake in one place |
 | [Presentation and demo guide](artifacts/report/Presentation_and_Demo_Guide.pdf) | How to run the demo and answer the likely questions |
 | [Speaking script](artifacts/report/Speaking_Script.pdf) | Word-for-word script for two presenters |
