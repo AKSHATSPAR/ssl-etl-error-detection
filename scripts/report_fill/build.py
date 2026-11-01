@@ -235,6 +235,19 @@ def remove_acknowledgements(doc):
     return removed
 
 
+def remove_certificate(doc):
+    """The student asked for this page to be removed."""
+    start = find(doc, "CERTIFICATE")
+    end = find(doc, "TABLE OF CONTENTS")
+    if start < 0 or end < 0:
+        return 0
+    removed = 0
+    for p in list(doc.paragraphs)[start:end]:
+        drop(p)
+        removed += 1
+    return removed
+
+
 def fill_toc(doc):
     t = doc.tables[2]
     while len(t.rows) > 1:
@@ -268,9 +281,11 @@ def fill_figures_tables(doc):
             style_run(p.add_run(val), size=10)
 
     # A note the template leaves for whoever fills it in, not report content.
-    i = find(doc, "caption should come below the figure")
-    if i >= 0:
-        drop(doc.paragraphs[i])
+    for note in ("caption should come below the figure",
+                 "Contents, Times New Roman 12"):
+        i = find(doc, note)
+        if i >= 0:
+            drop(doc.paragraphs[i])
 
     # The template's list of tables is loose paragraphs, not a table.
     i = find(doc, "Table No.\tTitle")
@@ -403,6 +418,7 @@ def main():
     doc = Document(str(TEMPLATE))
     fill_front(doc)
     n = remove_acknowledgements(doc)
+    nc = remove_certificate(doc)
     fill_toc(doc)
     fill_figures_tables(doc)
     fill_abbreviations(doc)
@@ -410,6 +426,7 @@ def main():
     write_body(doc)
     doc.save(str(OUT))
     print(f"  removed {n} acknowledgement paragraphs")
+    print(f"  removed {nc} certificate paragraphs")
     print(f"  wrote {OUT.relative_to(ROOT)}  "
           f"({OUT.stat().st_size // 1024} KB, "
           f"{len(doc.paragraphs)} paragraphs, {len(doc.tables)} tables)")
