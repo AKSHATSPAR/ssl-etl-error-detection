@@ -430,8 +430,64 @@ def fill_date(doc):
             for run in reversed(p.runs):
                 if run.text.strip() == ":":
                     run.text = f"\t: {C.DATE}"
+                    # The template indents this line nearly five inches from
+                    # the right, which leaves about an inch to write in. The
+                    # date wraps mid-way without this.
+                    p.paragraph_format.right_indent = Inches(1.5)
+                    # Place and date belong on separate lines. The template
+                    # only ever separated them by overflowing the indent
+                    # above, so put a real break between them.
+                    for idx, r in enumerate(p.runs):
+                        if r.text.strip() == "Date" and idx:
+                            before = p.runs[idx - 1]
+                            before.text = before.text.rstrip()
+                            before._element.append(OxmlElement("w:br"))
+                            break
                     return 1
     return 0
+
+
+def add_signatures(doc):
+    """Put the candidates' signatures above the line that names them."""
+    i = find(doc, "Signature of the Candidates")
+    if i < 0:
+        return 0
+    caption = doc.paragraphs[i]
+    present = [(reg, name) for reg, name in C.STUDENTS
+               if (ROOT / C.SIGNATURES.get(reg, "")).is_file()]
+    if not present:
+        return 0
+
+    tbl = doc.add_table(rows=0, cols=len(present))
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl.autofit = False
+    rows = [tbl.add_row() for _ in range(3)]
+    for ci, (reg, name) in enumerate(present):
+        for row in rows:
+            row.cells[ci].width = Inches(2.3)
+            row.cells[ci].text = ""
+
+        p = rows[0].cells[ci].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(str(ROOT / C.SIGNATURES[reg]), height=Inches(0.62))
+
+        p = rows[1].cells[ci].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        style_run(p.add_run(name), size=11, bold=True)
+
+        p = rows[2].cells[ci].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        style_run(p.add_run(reg), size=11)
+
+    spacer = caption.insert_paragraph_before()
+    style_run(spacer.add_run(""), size=12)
+    caption._element.addprevious(tbl._element)
+    # Centre the caption under the pair rather than leaving it off to one side.
+    caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    caption.paragraph_format.left_indent = Inches(0)
+    caption.paragraph_format.right_indent = Inches(0)
+    caption.paragraph_format.space_before = Pt(10)
+    return len(present)
 
 
 def tidy_before_abstract(doc):
@@ -557,6 +613,7 @@ def main():
     fill_figures_tables(doc)
     fill_abbreviations(doc)
     nd = fill_date(doc)
+    nsig = add_signatures(doc)
     nb = tidy_before_abstract(doc)
     clear_body(doc)
     write_body(doc)
@@ -566,6 +623,7 @@ def main():
     print(f"  removed {nc} certificate paragraphs")
     print(f"  removed {nb} blank paragraphs before the abstract")
     print(f"  date line filled: {bool(nd)}")
+    print(f"  signatures placed: {nsig}")
     print(f"  page numbering across {ns} sections")
     print(f"  wrote {OUT.relative_to(ROOT)}  "
           f"({OUT.stat().st_size // 1024} KB, "

@@ -24,6 +24,13 @@ PROGRAMME_SHORT = "Computer Science and Engineering (Data Science)"
 COURSE = "Deep Learning Course Project"
 STUDENTS = [("23BDS0149", "AKSHAT SPARSH"), ("23BDS0162", "ANUPRAKASH DUBEY")]
 DATE = "01 November 2026"
+# Scanned signatures for the declaration, keyed by registration number. These
+# are personal, so they stay out of version control; prepare_signatures.py
+# builds them from photos dropped in artifacts/signatures/raw.
+SIGNATURES = {
+    "23BDS0149": "artifacts/signatures/akshat.png",
+    "23BDS0162": "artifacts/signatures/anuprakash.png",
+}
 MONTH = "November 2026"
 
 ABSTRACT = """Extract, Transform and Load pipelines move data between the systems a
