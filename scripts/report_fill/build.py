@@ -225,7 +225,7 @@ def fill_front(doc):
 
 
 def remove_acknowledgements(doc):
-    """The student asked for this page to be removed."""
+    """Drop the acknowledgements page, which this submission does not use."""
     start = find(doc, "ACKNOWLEDGEMENTS")
     end = find(doc, "TABLE OF CONTENTS")
     if start < 0 or end < 0:
@@ -238,7 +238,7 @@ def remove_acknowledgements(doc):
 
 
 def remove_certificate(doc):
-    """The student asked for this page to be removed."""
+    """Drop the certificate page, which this submission does not use."""
     start = find(doc, "CERTIFICATE")
     end = find(doc, "TABLE OF CONTENTS")
     if start < 0 or end < 0:
