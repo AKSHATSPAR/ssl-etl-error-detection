@@ -12,10 +12,12 @@ cd "$(dirname "$0")/.."
 DEST="${1:-$HOME/Downloads/ETL_Project_Submission}"
 rm -rf "$DEST"
 mkdir -p "$DEST/1_SUBMIT_THESE" "$DEST/2_YOUR_PREPARATION" \
-         "$DEST/3_ON_THE_DAY/figures"
+         "$DEST/3_ON_THE_DAY/figures" "$DEST/4_DATA_SAMPLES"
 
 # ---- 1. What gets handed in ----
 cp artifacts/report/ETL_Error_Detection_Report.docx "$DEST/1_SUBMIT_THESE/"
+# The VIT template version, which is the one actually handed in.
+cp artifacts/report_vit/Project_Report_Akshat_Anuprakash.docx "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.pdf          "$DEST/1_SUBMIT_THESE/"
 cp artifacts/report/Literature_Review.docx         "$DEST/1_SUBMIT_THESE/"
 cp artifacts/slides/ETL_Project_Viva.pptx          "$DEST/1_SUBMIT_THESE/"
@@ -91,6 +93,9 @@ Demo will not open:   drag the HTML file onto an open browser window.
 Slides will not open: the figures/ folder has every picture as a PNG.
 Both dead:            fig2_propagation.png alone carries the main idea.
 TXT
+
+# Spreadsheet samples, so the data can be shown without a Python prompt.
+cp artifacts/data_samples/*.csv "$DEST/4_DATA_SAMPLES/" 2>/dev/null || true
 
 echo "packaged into $DEST"
 find "$DEST" -type f | sed "s|$DEST/|  |" | sort
