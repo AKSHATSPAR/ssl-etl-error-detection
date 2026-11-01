@@ -23,6 +23,7 @@ PROGRAMME = "Computer Science and Engineering with Specialization in Data Scienc
 PROGRAMME_SHORT = "Computer Science and Engineering (Data Science)"
 COURSE = "Deep Learning Course Project"
 STUDENTS = [("23BDS0149", "AKSHAT SPARSH"), ("23BDS0162", "ANUPRAKASH DUBEY")]
+DATE = "01 November 2026"
 MONTH = "November 2026"
 
 ABSTRACT = """Extract, Transform and Load pipelines move data between the systems a

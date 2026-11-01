@@ -298,12 +298,42 @@ def fill_figures_tables(doc):
                                 for no, cap, page in C.TABLES), size=10)
 
 
+def two_column_list(doc, par, rows, left_width, right_width, size=11,
+                    spacer=False):
+    """Lay a two-column list out as a real table, replacing *par*.
+
+    A tab stop cannot wrap. Any description wider than its column runs back to
+    the left margin and collides with the next entry, which is what the symbol
+    list did. Table cells wrap inside their own column.
+    """
+    tbl = doc.add_table(rows=0, cols=2)
+    tbl.autofit = False
+    for left, right in rows:
+        cells = tbl.add_row().cells
+        for cell, val, width in ((cells[0], left, left_width),
+                                 (cells[1], right, right_width)):
+            cell.width = width
+            cell.text = ""
+            p = cell.paragraphs[0]
+            p.paragraph_format.space_before = Pt(1)
+            p.paragraph_format.space_after = Pt(1)
+            style_run(p.add_run(val), size=size)
+    par._element.addnext(tbl._element)
+    if spacer:
+        # The abbreviations list inherits a blank line from the template and
+        # this one does not, so give it the same breathing room.
+        set_text(par, "", size=size)
+    else:
+        drop(par)
+    return tbl
+
+
 def fill_abbreviations(doc):
     first = find(doc, "2G\tSecond Generation")
     if first < 0:
         return
-    par = doc.paragraphs[first]
-    set_text(par, "\n".join(f"{a}\t{d}" for a, d in C.ABBREVIATIONS), size=11)
+    two_column_list(doc, doc.paragraphs[first], C.ABBREVIATIONS,
+                    Inches(1.3), Inches(4.7))
     for stale in ["3GPP\t", "3G\tThird", "4G\tFourth", "AWGN\t", "BBE\t",
                   "CSMA\t", "DAS\t"]:
         i = find(doc, stale)
@@ -316,10 +346,44 @@ def fill_abbreviations(doc):
         i = find(doc, stale)
         if i >= 0:
             if stale == "f\tCFO":
-                set_text(doc.paragraphs[i],
-                         "\n".join(f"{s}\t{d}" for s, d in C.SYMBOLS), size=11)
+                two_column_list(doc, doc.paragraphs[i], C.SYMBOLS,
+                                Inches(1.0), Inches(5.0), spacer=True)
             else:
                 drop(doc.paragraphs[i])
+
+
+def fill_date(doc):
+    """The declaration carries a date line the template leaves blank."""
+    for p in doc.paragraphs:
+        flat = " ".join(p.text.split())
+        if flat.startswith("Place") and "Date" in flat:
+            for run in reversed(p.runs):
+                if run.text.strip() == ":":
+                    run.text = f"\t: {C.DATE}"
+                    return 1
+    return 0
+
+
+def tidy_before_abstract(doc):
+    """Clear the tail the template's own symbol list leaves behind.
+
+    Replacing that list with ours empties the paragraphs it used to occupy but
+    does not remove them, and the run of blanks pushes the abstract onto a
+    second page. Dropping them and breaking the page keeps it on one.
+    """
+    end = find(doc, "ABSTRACT")
+    if end < 0:
+        return 0
+    ps = doc.paragraphs
+    start = end
+    while start > 0 and not ps[start - 1].text.strip():
+        start -= 1
+    removed = 0
+    for p in list(ps)[start:end]:
+        drop(p)
+        removed += 1
+    doc.paragraphs[find(doc, "ABSTRACT")].paragraph_format.page_break_before = True
+    return removed
 
 
 # ------------------------------------------------------------------- body ---
@@ -422,11 +486,15 @@ def main():
     fill_toc(doc)
     fill_figures_tables(doc)
     fill_abbreviations(doc)
+    nd = fill_date(doc)
+    nb = tidy_before_abstract(doc)
     clear_body(doc)
     write_body(doc)
     doc.save(str(OUT))
     print(f"  removed {n} acknowledgement paragraphs")
     print(f"  removed {nc} certificate paragraphs")
+    print(f"  removed {nb} blank paragraphs before the abstract")
+    print(f"  date line filled: {bool(nd)}")
     print(f"  wrote {OUT.relative_to(ROOT)}  "
           f"({OUT.stat().st_size // 1024} KB, "
           f"{len(doc.paragraphs)} paragraphs, {len(doc.tables)} tables)")
