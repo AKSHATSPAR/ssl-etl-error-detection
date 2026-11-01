@@ -10,12 +10,14 @@ index, because any edit shifts the indices underneath.
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
@@ -352,6 +354,74 @@ def fill_abbreviations(doc):
                 drop(doc.paragraphs[i])
 
 
+def _page_field(par):
+    """Drop a PAGE field into *par*, centred."""
+    par.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = par.add_run()
+    style_run(run, size=12)
+    begin = OxmlElement("w:fldChar"); begin.set(qn("w:fldCharType"), "begin")
+    instr = OxmlElement("w:instrText"); instr.set(qn("xml:space"), "preserve")
+    instr.text = " PAGE "
+    end = OxmlElement("w:fldChar"); end.set(qn("w:fldCharType"), "end")
+    for el in (begin, instr, end):
+        run._element.append(el)
+
+
+def _numbering(section, fmt, start):
+    """Set the printed page-number format for one section."""
+    sectPr = section._sectPr
+    for old in sectPr.findall(qn("w:pgNumType")):
+        sectPr.remove(old)
+    el = OxmlElement("w:pgNumType")
+    el.set(qn("w:fmt"), fmt)
+    el.set(qn("w:start"), str(start))
+    sectPr.append(el)
+
+
+def _split_section_before(doc, par):
+    """Start a new section at *par*, carrying the current settings forward."""
+    last = doc.sections[-1]
+    carried = copy.deepcopy(last._sectPr)
+    holder = OxmlElement("w:p")
+    pPr = OxmlElement("w:pPr")
+    pPr.append(last._sectPr)
+    holder.append(pPr)
+    par._element.addprevious(holder)
+    doc._body._element.append(carried)
+
+
+def add_page_numbers(doc):
+    """Number the pages, roman through the front matter and arabic in the body.
+
+    The template prints no page numbers at all, which leaves the contents page
+    pointing at numbers that appear nowhere. The declaration and the contents
+    page itself stay unnumbered, as they usually are, so the roman count opens
+    on the first page the contents actually lists.
+    """
+    for needle in ("List of Figures", "CHAPTER 1"):
+        i = find(doc, needle)
+        if i < 0:
+            return 0
+        _split_section_before(doc, doc.paragraphs[i])
+
+    secs = doc.sections
+    _numbering(secs[-2], "lowerRoman", 1)
+    _numbering(secs[-1], "decimal", 1)
+    for s in secs[:-2]:
+        s.footer.is_linked_to_previous = False
+        for p in list(s.footer.paragraphs)[1:]:
+            drop(p)
+        set_text(s.footer.paragraphs[0], "", size=12)
+    for s in secs[-2:]:
+        s.footer.is_linked_to_previous = False
+        for p in list(s.footer.paragraphs)[1:]:
+            drop(p)
+        par = s.footer.paragraphs[0]
+        set_text(par, "", size=12)
+        _page_field(par)
+    return len(secs)
+
+
 def fill_date(doc):
     """The declaration carries a date line the template leaves blank."""
     for p in doc.paragraphs:
@@ -490,11 +560,13 @@ def main():
     nb = tidy_before_abstract(doc)
     clear_body(doc)
     write_body(doc)
+    ns = add_page_numbers(doc)
     doc.save(str(OUT))
     print(f"  removed {n} acknowledgement paragraphs")
     print(f"  removed {nc} certificate paragraphs")
     print(f"  removed {nb} blank paragraphs before the abstract")
     print(f"  date line filled: {bool(nd)}")
+    print(f"  page numbering across {ns} sections")
     print(f"  wrote {OUT.relative_to(ROOT)}  "
           f"({OUT.stat().st_size // 1024} KB, "
           f"{len(doc.paragraphs)} paragraphs, {len(doc.tables)} tables)")
